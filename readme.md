@@ -141,3 +141,11 @@ manifest.webmanifest    install-to-home-screen metadata
 mockup/                 the original clickable mockup (fake data)
 .claude/skills/         project conventions for Claude Code
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Bruno Alexandre. You're free to use, copy, modify and share this project, including
+in your own or commercial projects, as long as you **keep the copyright notice and the license text**
+in your copy. A link back to <https://github.com/balexandre/filament-stock> is appreciated.
+
+Filament data is loaded at runtime from [SpoolmanDB](https://github.com/Donkie/SpoolmanDB) (MIT).

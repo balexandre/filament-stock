@@ -22,6 +22,8 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 - **Supabase** for auth + data. Only the project URL and the **publishable/anon** key live in
   `js/config.js` (public by design); every table has Row Level Security. Never commit a
   `service_role` / `sb_secret_…` key.
+- **License: MIT** (`LICENSE`, © Bruno Alexandre). Only add libraries/data under compatible
+  licenses (MIT, BSD, Apache-2.0, ISC); never vendor third-party files we can't redistribute.
 - **SpoolmanDB** is the only catalogue of brands/filaments. Don't invent a catalogue table.
   The compiled `filaments.json` feeds "Add spool"; the per-brand **source** files
   (`raw.githubusercontent.com/Donkie/SpoolmanDB/main/filaments/<brand>.json`) feed Learn.
