@@ -20,24 +20,41 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 
 ## Features
 
-- **📦 Stock at a glance:** every spool with grams left and a green / amber / red bar.
-  Spools are recognised by colour first, then name and material.
+- **📦 Stock at a glance:** every spool with grams left and a green / amber / red bar, four per
+  row on a computer. Spools are recognised by colour first, then name and material.
 - **🖨️ What's in the printer:** front-view cards for the **AMS 2 Pro** (4 slots) and the
   **AMS HT** (1 slot), drawn to the real units' proportions. A spool's ring gets thinner as
   it runs out.
+  Tap an empty slot's **+** to load a spool you already have (from the shelf or a dry box), or to
+  add a new one straight into that slot.
 - **📷 Scan to log:** each spool gets a 4-character code on a QR label or NFC sticker. Scanning it
   opens one question, "How many grams did your print use?", or you can weigh the spool instead.
   Every log has a 10-second **Undo**.
 - **🛒 Shopping list:** set a minimum per filament (all its spools count together) and get a
   warning plus a "to order" list you can copy.
-- **🔎 Add from SpoolmanDB:** search about 8,000 1.75 mm filaments by brand, colour or material.
-  The catalogue is cached on the device, and Settings shows whether SpoolmanDB has changed since,
-  with links to the repo and its recent changes.
+- **🔎 Add from SpoolmanDB:** about 8,000 1.75 mm filaments, two ways:
+  - **🧭 Step by step:** Brand › Material › Type (e.g. SUNLU › PETG › PETG 2.0) › Colours. Tap
+    several colours to add a whole multi-pack in one go; the type step shows each product line
+    with its colour dots and its diameter and roll weight straight from SpoolmanDB
+    (e.g. "✔ 1.75 mm · 1 kg"), so you can check them against the box.
+  - **🎨 Colour not listed?** Add it inside its type (e.g. SUNLU PETG 2.0 "Skin"): brand,
+    material, diameter and temperatures come from the type, and you only give the colour.
+  - **Search** by brand, colour or material.
+  - **♻️ Refill (no spool):** mark rolls that came without a spool. The app reminds you they need a
+    reusable spool, and the spool's weight becomes the reusable spool's.
+  - The catalogue is cached on the device, and Settings shows whether SpoolmanDB has changed since,
+    with links to the repo and its recent changes.
+- **🔒 Unopened:** new spools start as *Unopened* (still in the original sealed bag or box), the
+  default location in Add spool. Its spool page says it's safe from moisture, and flipping
+  *In its dry box* when you open it moves it into its box. If there's no box, *Put it on the
+  shelf*.
 - **💧 Desiccant tracking:**
   - **One dry box per spool** (for example a 4 L cereal box): flip *In its dry box* on the spool's
     page and it gets its own desiccant clock.
-  - **The AMS units** are tracked too.
-  - **Overdue boxes** show a banner. Log *New packs* or *Recharged*, with an optional hygrometer
+  - **The AMS units** show a small 💧 gauge in the top-right corner of their card: the ring
+    empties as the desiccant ages, next to the days left, and turns red with *Change* when it's
+    due. Tap it to log a change.
+  - **Overdue boxes** show a banner. Log *Refilled* (new beads from a refill bottle) or *Dried* (recharged), with an optional hygrometer
     reading.
 - **🏷️ Labels:** print sheets of 62 × 32 mm QR labels, or write **NTAG215** NFC stickers straight
   from Chrome on Android.
@@ -132,7 +149,7 @@ js/config.js            Supabase URL + publishable key, public site URL
 js/api.js               every Supabase call (+ the SpoolmanDB GitHub check)
 js/catalog.js           SpoolmanDB download, IndexedDB cache, search
 js/materials.js         Learn content and X2D settings per material
-js/brands.js            brand product lines from SpoolmanDB source files (Learn sub-cards)
+js/brands.js            brand product lines from SpoolmanDB source files (Learn sub-cards, Add spool types)
 js/brand-notes.js       curated names + "how it differs" notes per brand product line
 js/app.js               the Alpine component: state, routing, actions, theme
 supabase/schema.sql     tables, views, RLS, triggers, RPCs (idempotent)

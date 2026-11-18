@@ -151,9 +151,12 @@ function moistureWord(level) { return level >= 3 ? 'Very high' : level >= 2 ? 'H
 
 // One short, kid-friendly sentence for the spool page. `name` is the spool's material as written
 // on it (e.g. "PETG", "TPU 95A"); `inBox` = the spool sits in its own dry box.
-function moistureAdvice(material, inBox) {
+function moistureAdvice(material, inBox, sealed = false) {
   const m = learnFor(material).moisture ?? 1;
   const name = material || 'This filament';
+  if (sealed) return { level: m, tone: 'ok', text: m >= 1
+    ? `🔒 Still in its original bag, so it stays dry. When you open it, put it in its dry box.`
+    : `🔒 Still in its original bag.` };
   if (m >= 2) return inBox
     ? { level: m, tone: 'ok', text: `✅ ${name} is moisture-sensitive — good thing it’s in its dry box.` }
     : { level: m, tone: 'warn', text: `💧 ${name} is moisture-sensitive: keep it in its dry box.` };

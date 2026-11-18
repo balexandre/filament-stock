@@ -34,7 +34,7 @@ const Catalog = (() => {
 
   function normalize(raw) {
     return raw
-      .filter(f => !f.diameter || Math.abs(f.diameter - 1.75) < 0.1) // both printers are 1.75 mm
+      .filter(f => f.diameter && Math.abs(f.diameter - 1.75) < 0.01) // both printers are 1.75 mm: only rows SpoolmanDB says are 1.75
       .map(f => ({
         id: f.id,
         brand: f.manufacturer,
@@ -44,7 +44,7 @@ const Catalog = (() => {
         hexes: f.color_hexes && f.color_hexes.length > 1 ? f.color_hexes : null,
         weight: f.weight || 1000,
         spool_weight: f.spool_weight ?? null,
-        diameter: f.diameter || 1.75,
+        diameter: f.diameter,
         extruder_temp: f.extruder_temp ?? null,
         bed_temp: f.bed_temp ?? null,
         finish: f.finish || null,
@@ -84,8 +84,20 @@ const Catalog = (() => {
     return out;
   }
 
+  // Brands with their 1.75 mm filament count, for the guided picker.
+  function brands() {
+    const m = new Map();
+    for (const f of items || []) {
+      // the id prefix ("sunlu" in "sunlu_petg_…") is the brand's source file name
+      const b = m.get(f.brand) || { name: f.brand, prefix: f.id.split('_')[0], count: 0 };
+      b.count++; m.set(f.brand, b);
+    }
+    return [...m.values()];
+  }
+  const ofBrand = brand => (items || []).filter(f => f.brand === brand);
+
   return {
-    load, search,
+    load, search, brands, ofBrand,
     kvGet: idbGet, kvSet: idbSet, // shared IndexedDB cache (js/brands.js uses it too)
     get count() { return items ? items.length : 0; },
     async cachedAt() { const c = await idbGet(KEY); return c ? c.ts : null; },

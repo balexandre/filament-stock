@@ -1,7 +1,8 @@
 // Filament Stock — main Alpine component.
 const SLOTS = ['AMS 1', 'AMS 2', 'AMS 3', 'AMS 4', 'AMS HT'];
 const BOX_LOC = 'Dry box'; // the spool sits in its OWN sealed box with desiccant (one box per spool)
-const BASE_LOCATIONS = [...SLOTS, 'Ender 3', 'Shelf', BOX_LOC];
+const SEALED = 'Unopened'; // still in its original sealed bag/box: moves to its dry box when opened
+const BASE_LOCATIONS = [...SLOTS, 'Ender 3', SEALED, 'Shelf', BOX_LOC];
 const PUBLIC_ROUTES = ['learn', 'cards'];
 
 const store = {
@@ -21,10 +22,17 @@ function applyTheme(theme) {
 applyTheme(store.get('theme') || 'system');
 darkQuery.addEventListener('change', () => applyTheme(store.get('theme') || 'system'));
 
+// Brands shown first in the guided picker (after the ones already on the shelf).
+const POPULAR_BRANDS = ['Bambu Lab', 'Sunlu', 'ELEGOO', 'Polymaker', 'eSun', 'JAYO', 'Creality', 'Prusament', 'Overture', 'ANYCUBIC'];
+
 const freshAdd = () => ({
-  step: 1, q: '', results: [], pick: null, custom: false,
+  step: 1, mode: 'guide', q: '', results: [], custom: false,
+  // guided picker: Brand › Material › Type › Colours
+  g: { missing: { open: false, name: '', hex: '#888888' }, brandQ: '', allBrands: false, brand: null, items: [], mat: null, groups: [], line: null, state: 'idle' },
+  picks: [], // [{ f: catalogue filament, qty }] — several colours can be added in one go
+  refill: false, // came without a spool (wound onto a reusable one)
   brand: '', name: '', material: 'PLA', hex: '#888888',
-  location: 'Shelf', initial: 1000, spoolWeight: '', min: '', qty: 1,
+  location: SEALED, initial: 1000, spoolWeight: '', min: '', qty: 1,
   created: [], saving: false,
 });
 
@@ -48,8 +56,11 @@ document.addEventListener('alpine:init', () => {
     toast: '', undoFn: null, toastTimer: null,
     add: freshAdd(),
     catalog: { state: 'idle', count: 0, err: '' },
+    catBrands: [],
     labelSel: [],
     nfc: { open: false, code: '', state: 'idle', msg: '' },
+    slotPick: { open: false, loc: '', saving: false }, // "+" on an empty AMS / Ender slot
+    pendingLoc: null, // slot to preselect when "Add a new spool" is opened from the slot picker
     edit: null,
     card: null,
     members: [], printers: [], hh: { name: '', default_min_g: 200 }, myName: '',
@@ -98,12 +109,15 @@ document.addEventListener('alpine:init', () => {
     get amsUnits() {
       const slot = (loc, n) => ({ loc, n, spool: this.spools.find(s => s.location === loc) });
       return [
-        { name: 'AMS 2 Pro', ht: false, sub: this.simple ? '4 colours' : '4 slots · dries up to 65 °C',
+        { name: 'AMS 2 Pro', ht: false, dry: this.amsDry('AMS 2 Pro'), sub: this.simple ? '4 colours' : '4 slots · dries up to 65 °C',
           slots: ['AMS 1', 'AMS 2', 'AMS 3', 'AMS 4'].map((l, i) => slot(l, i + 1)) },
-        { name: 'AMS HT', ht: true, sub: this.simple ? '1 colour · hot plastics' : '1 slot · dries up to 85 °C',
+        { name: 'AMS HT', ht: true, dry: this.amsDry('AMS HT'), sub: this.simple ? '1 colour · hot plastics' : '1 slot · dries up to 85 °C',
           slots: [slot('AMS HT', 'HT')] },
       ];
     },
+    amsDry(name) { return this.activeDry.find(d => d.kind === 'ams' && d.name === name) || null; },
+    // shared boxes added in Settings (AMS units show their desiccant on their own card)
+    get boxDry() { return this.activeDry.filter(d => d.kind !== 'ams'); },
     get pickList() {
       const slot = s => { const i = SLOTS.indexOf(s.location); return i < 0 ? 99 : i; };
       return [...this.spools].sort((a, b) => slot(a) - slot(b));
@@ -194,7 +208,7 @@ document.addEventListener('alpine:init', () => {
         case 'pick': this.loadSpools(); break;
         case 's': this.openSpool(this.param); if (!this.drySpots.length) this.loadDry(); this.loadLines(); break;
         case 'edit': this.openSpool(this.param, true); break;
-        case 'add': this.add = freshAdd(); this.loadCatalog(); this.loadDry(); break;
+        case 'add': this.add = freshAdd(); if (this.pendingLoc) { this.add.location = this.pendingLoc; this.pendingLoc = null; } this.loadCatalog(); this.loadDry(); break;
         case 'labels':
           this.loadSpools().then(() => {
             this.labelSel = this.param ? this.param.split(',') : this.spools.map(s => s.code);
@@ -307,41 +321,164 @@ document.addEventListener('alpine:init', () => {
       try {
         await Catalog.load(force);
         this.catalog.state = 'ready'; this.catalog.count = Catalog.count;
+        this.catBrands = Catalog.brands();
         this.catalogTs = await Catalog.cachedAt();
         if (this.add.q) this.searchCatalog();
       } catch (e) { this.catalog.state = 'error'; this.catalog.err = e.message; }
     },
     searchCatalog() { this.add.results = Catalog.search(this.add.q); },
-    pickFilament(f) {
-      Object.assign(this.add, {
-        pick: f, custom: false, initial: f.weight || 1000,
-        spoolWeight: f.spool_weight ?? '', step: 2,
-      });
+    // a search result: just that one filament
+    pickFilament(f) { this.add.picks = [{ f, qty: 1 }]; this.toDetails(); },
+    customFilament() { Object.assign(this.add, { picks: [], custom: true, step: 2 }); },
+
+    // ---------- guided picker: Brand › Material › Type › Colours ----------
+    guideBrands() {
+      const mine = new Set(this.spools.map(s => s.brand));
+      const rank = b => mine.has(b.name) ? 0 : POPULAR_BRANDS.includes(b.name) ? 1 + POPULAR_BRANDS.indexOf(b.name) : 99;
+      const q = this.add.g.brandQ.trim().toLowerCase();
+      return this.catBrands.filter(b => !q || b.name.toLowerCase().includes(q))
+        .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
     },
-    customFilament() { Object.assign(this.add, { pick: null, custom: true, step: 2 }); },
+    guideMaterials() {
+      const m = new Map();
+      for (const f of this.add.g.items) m.set(f.material, (m.get(f.material) || 0) + 1);
+      return [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    },
+    guideBack(level) {
+      const g = this.add.g;
+      if (level === 'brand') Object.assign(g, { brand: null, items: [], mat: null, groups: [], line: null });
+      if (level === 'material') Object.assign(g, { mat: null, groups: [], line: null });
+      if (level === 'line') g.line = null;
+      g.missing.open = false;
+    },
+    pickBrand(b) {
+      Object.assign(this.add.g, { brand: b, items: Catalog.ofBrand(b.name), mat: null, groups: [], line: null });
+      const mats = this.guideMaterials();
+      if (mats.length === 1) this.pickMaterial(mats[0].name);
+    },
+    // Group the brand's colours of one material into product lines (from the brand's SpoolmanDB
+    // source file). If that file can't be loaded, show every colour in one list.
+    async pickMaterial(mat) {
+      const g = this.add.g, brand = g.brand;
+      Object.assign(g, { mat, groups: [], line: null, state: 'loading' });
+      const items = g.items.filter(f => f.material === mat);
+      // the same colour can come in several weights: offer the one closest to 1 kg
+      const best = list => list.reduce((a, b) => Math.abs(b.weight - 1000) < Math.abs(a.weight - 1000) ? b : a);
+      const byName = new Map();
+      for (const f of items) byName.set(f.name, [...(byName.get(f.name) || []), f]);
+      let groups = [];
+      try {
+        const lines = (await Brands.linesOf(brand.name, brand.prefix)).filter(l => l.material === mat);
+        const used = new Set();
+        groups = lines.map(l => ({
+          id: l.id, label: l.label, kid: l.kid || l.blurb || '', template: l.template,
+          entries: l.colors.map(c => {
+            const name = l.template.replace('{color_name}', c.name).replace(/\s+/g, ' ').trim();
+            const hits = byName.get(name);
+            if (!hits || used.has(name)) return null;
+            used.add(name);
+            return { f: best(hits), colour: c.name };
+          }).filter(Boolean),
+        })).filter(x => x.entries.length);
+        const rest = [...byName].filter(([n]) => !used.has(n)).map(([n, list]) => ({ f: best(list), colour: n }));
+        const seen = {}; // two lines can end up with the same name: number them
+        for (const x of groups) { seen[x.label] = (seen[x.label] || 0) + 1; if (seen[x.label] > 1) x.label += ` (${seen[x.label]})`; }
+        if (rest.length) groups.push({ id: 'other', label: groups.length ? 'Other ' + mat : mat, kid: '', entries: rest });
+      } catch { groups = []; }
+      if (g.brand !== brand || g.mat !== mat) return; // the user already picked something else
+      if (!groups.length) groups = [{ id: 'all', label: mat, kid: '', entries: [...byName].map(([n, list]) => ({ f: best(list), colour: n })) }];
+      for (const x of groups) x.spec = this.specOf(x.entries.map(e => e.f));
+      g.groups = groups; g.state = 'ready';
+      if (groups.length === 1) g.line = groups[0];
+    },
+    // "1.75 mm · 1 kg" straight from the SpoolmanDB rows, so you can check it against the box
+    specOf(fs) {
+      const uniq = a => [...new Set(a.filter(v => v != null))];
+      const kg = w => w >= 1000 ? (w / 1000).toLocaleString() + ' kg' : w + ' g';
+      return [uniq(fs.map(f => f.diameter)).map(d => d + ' mm').join(' / '), uniq(fs.map(f => +f.weight)).sort((a, b) => b - a).map(kg).join(' / ')]
+        .filter(Boolean).join(' · ');
+    },
+    // A colour SpoolmanDB doesn't list yet (e.g. a new SUNLU colour): keep brand, material, type,
+    // diameter and temperatures from the type, take the colour name and swatch from the user.
+    addMissingColour() {
+      const g = this.add.g, line = g.line, m = g.missing;
+      const colour = m.name.trim();
+      if (!line || !colour) { this.showToast('Type the colour name first'); return; }
+      const ref = line.entries[0].f;
+      const name = line.template ? line.template.replace('{color_name}', colour).replace(/\s+/g, ' ').trim() : colour;
+      const f = {
+        id: 'custom:' + ref.brand + ':' + ref.material + ':' + name.toLowerCase(), custom: true,
+        brand: ref.brand, name, material: ref.material, hex: m.hex.replace('#', '').toUpperCase(), hexes: null,
+        weight: ref.weight, spool_weight: ref.spool_weight, diameter: ref.diameter,
+        extruder_temp: ref.extruder_temp, bed_temp: ref.bed_temp,
+      };
+      if (!line.entries.some(e => e.f.id === f.id)) line.entries.push({ f, colour: colour + ' (not in SpoolmanDB)' });
+      this.bumpPick(f, 1);
+      g.missing = { open: false, name: '', hex: '#888888' };
+    },
+    pickQty(f) { return this.add.picks.find(p => p.f.id === f.id)?.qty || 0; },
+    bumpPick(f, d = 1) {
+      const picks = this.add.picks, p = picks.find(x => x.f.id === f.id);
+      if (p) { p.qty = Math.max(0, Math.min(20, p.qty + d)); if (!p.qty) picks.splice(picks.indexOf(p), 1); }
+      else if (d > 0) picks.push({ f, qty: 1 });
+    },
+    get addTotal() {
+      return this.add.custom ? Math.max(1, Math.min(20, +this.add.qty || 1)) : this.add.picks.reduce((n, p) => n + p.qty, 0);
+    },
+    isPrinterLoc(l) { return SLOTS.includes(l) || l === 'Ender 3'; },
+    // several spools can't all go in one printer slot: offer Shelf, Dry box (each its own) and shared boxes
+    get addLocations() {
+      return this.addTotal > 1 ? this.locations.filter(l => !SLOTS.includes(l) && l !== 'Ender 3') : this.locations;
+    },
+    toDetails() {
+      const a = this.add, f = a.picks[0]?.f;
+      if (!f) return;
+      Object.assign(a, { custom: false, step: 2, initial: f.weight || 1000, spoolWeight: a.refill ? '' : (f.spool_weight ?? '') });
+      if (!this.addLocations.includes(a.location)) a.location = SEALED;
+    },
+    setRefill(on) {
+      this.add.refill = on;
+      this.add.spoolWeight = on ? '' : (this.add.picks[0]?.f.spool_weight ?? '');
+    },
     async saveAdd() {
       const a = this.add;
       if (a.saving) return;
       if (a.custom && (!a.name.trim() || !a.material.trim())) { this.showToast('Give it a name and material first'); return; }
+      if (!a.custom && !a.picks.length) { a.step = 1; return; }
+      if (!this.addLocations.includes(a.location)) a.location = SEALED;
       a.saving = true;
       try {
-        const p = a.pick;
-        const base = p ? {
-          spoolman_id: p.id, brand: p.brand, name: p.name, material: p.material,
-          color_hex: p.hex, color_hexes: p.hexes, diameter: p.diameter,
-          extruder_temp: p.extruder_temp, bed_temp: p.bed_temp,
-        } : {
-          spoolman_id: null, brand: a.brand.trim(), name: a.name.trim(), material: a.material.trim().toUpperCase(),
-          color_hex: a.hex.replace('#', '').toUpperCase(),
+        const common = {
+          initial_g: +a.initial || 1000,
+          spool_weight_g: a.spoolWeight === '' ? null : +a.spoolWeight,
+          notes: a.refill ? 'Refill (came without a spool)' : null,
+          // printer slots go through move_spool (it empties the slot first)
+          location: this.isPrinterLoc(a.location) ? 'Shelf' : a.location,
         };
-        base.initial_g = +a.initial || 1000;
-        base.spool_weight_g = a.spoolWeight === '' ? null : +a.spoolWeight;
-        if (!p && this.adult && a.min !== '') base.min_g = +a.min;
-        const qty = Math.max(1, Math.min(20, +a.qty || 1));
-        const rows = Array.from({ length: qty }, () => ({ ...base, location: 'Shelf' }));
+        const rows = [];
+        if (a.custom) {
+          const base = {
+            ...common, spoolman_id: null, brand: a.brand.trim(), name: a.name.trim(),
+            material: a.material.trim().toUpperCase(), color_hex: a.hex.replace('#', '').toUpperCase(),
+          };
+          if (this.adult && a.min !== '') base.min_g = +a.min;
+          for (let i = 0; i < this.addTotal; i++) rows.push({ ...base });
+        } else {
+          for (const { f, qty } of a.picks) {
+            const base = {
+              ...common, spoolman_id: f.custom ? null : f.id, brand: f.brand, name: f.name, material: f.material,
+              color_hex: f.hex, color_hexes: f.hexes, diameter: f.diameter,
+              extruder_temp: f.extruder_temp, bed_temp: f.bed_temp,
+            };
+            if (f.custom && this.adult && a.min !== '') base.min_g = +a.min;
+            for (let i = 0; i < qty; i++) rows.push({ ...base });
+          }
+        }
         const created = await api.addSpools(rows);
-        if (a.location !== 'Shelf') await api.moveSpool(created[0].id, a.location);
-        if (p && this.adult && a.min !== '') await api.setFilamentMin(this.me.household_id, p.id, +a.min);
+        if (this.isPrinterLoc(a.location)) for (const c of created) await api.moveSpool(c.id, a.location);
+        if (!a.custom && this.adult && a.min !== '') {
+          for (const id of new Set(a.picks.filter(p => !p.f.custom).map(p => p.f.id))) await api.setFilamentMin(this.me.household_id, id, +a.min);
+        }
         a.created = created.map(c => c.code);
         a.step = 3;
         this.loadSpools();
@@ -386,6 +523,29 @@ document.addEventListener('alpine:init', () => {
     learnUrl(key) { return (window.CONFIG.siteUrl || location.origin + location.pathname) + '#/learn/' + key; },
     printLabels(codes) { this.go('labels/' + codes.join(',')); },
     get nfcSupported() { return 'NDEFReader' in window; },
+    // ---------- load a spool you already have into an empty slot ----------
+    openSlot(loc) { this.slotPick = { open: true, loc, saving: false }; },
+    // spools not in a printer right now: shelf first, then dry boxes; same material together
+    get slotCandidates() {
+      const away = s => SLOTS.includes(s.location) || s.location === 'Ender 3';
+      const where = s => s.location === 'Shelf' ? 0 : s.location === SEALED ? 2 : 1; // opened rolls first
+      return this.spools.filter(s => !away(s))
+        .sort((a, b) => a.material.localeCompare(b.material) || where(a) - where(b) || a.name.localeCompare(b.name));
+    },
+    async loadIntoSlot(s) {
+      const p = this.slotPick;
+      if (p.saving) return;
+      p.saving = true;
+      try {
+        await api.moveSpool(s.id, p.loc);
+        s.location = p.loc;
+        p.open = false;
+        this.showToast(`${s.name} is in ${p.loc} now 🖨️`);
+        this.loadSpools();
+      } catch (e) { this.fail(e); } finally { p.saving = false; }
+    },
+    addForSlot() { this.pendingLoc = this.slotPick.loc; this.slotPick.open = false; location.hash = '#/add'; },
+
     openNfc(code) { this.nfc = { open: true, code, state: 'idle', msg: '' }; },
     async writeNfc() {
       const n = this.nfc;
@@ -412,12 +572,27 @@ document.addEventListener('alpine:init', () => {
       const days = Math.floor((Date.now() - new Date(d.last_changed_at)) / 86400000);
       const left = d.interval_days - days, pct = Math.min(100, Math.round((days / d.interval_days) * 100));
       const plural = n => n + ' day' + (n === 1 ? '' : 's');
-      if (left <= 0) return { key: 'due', pct: 100, bar: 'bg-red-600', cls: 'text-red-700 dark:text-red-300',
-        label: this.simple ? '🔴 Time to swap the beads!' : '🔴 Change now' + (left < 0 ? ` · ${plural(-left)} late` : '') };
-      if (pct >= 80) return { key: 'soon', pct, bar: 'bg-amber-500', cls: 'text-amber-700 dark:text-amber-300',
+      if (left <= 0) return { key: 'due', pct: 100, left, bar: 'bg-red-600', cls: 'text-red-700 dark:text-red-300',
+        label: this.simple ? '🔴 Time to refresh the beads!' : '🔴 Change now' + (left < 0 ? ` · ${plural(-left)} late` : '') };
+      if (pct >= 80) return { key: 'soon', pct, left, bar: 'bg-amber-500', cls: 'text-amber-700 dark:text-amber-300',
         label: this.simple ? '🟡 Beads getting tired' : `🟡 Due in ${plural(left)}` };
-      return { key: 'ok', pct, bar: 'bg-emerald-500', cls: 'text-emerald-700 dark:text-emerald-300',
+      return { key: 'ok', pct, left, bar: 'bg-emerald-500', cls: 'text-emerald-700 dark:text-emerald-300',
         label: this.simple ? '🟢 Beads are fresh' : `🟢 Fresh · ${plural(left)} left` };
+    },
+    // small round gauge in an AMS card's corner: the ring shrinks as the desiccant gets used up
+    dryGauge(d) {
+      const st = this.dryStatus(d);
+      const colour = { ok: '#10b981', soon: '#f59e0b', due: '#dc2626', unknown: '#94a3b8' }[st.key];
+      const fresh = st.key === 'unknown' ? 0 : st.key === 'due' ? 100 : 100 - st.pct; // due: full red ring
+      const text = st.key === 'unknown' ? (this.simple ? '?' : 'Log')
+        : st.key === 'due' ? (this.simple ? 'Now!' : 'Change') : st.left + ' d';
+      const short = st.key === 'unknown' ? '?' : st.key === 'due' ? '!' : st.left + 'd';
+      return { ...st, text, short, ring: `background:conic-gradient(${colour} ${fresh}%, rgba(148,163,184,.3) 0)` };
+    },
+    // the "desiccant due" banner jumps to the AMS cards or to the dry boxes
+    scrollToDue() {
+      const el = this.dryDue[0]?.kind === 'ams' ? this.$refs.ams : this.$refs.dry;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     boxStatus(s) {
       return this.dryStatus({ last_changed_at: s.desiccant_changed_at,
@@ -586,7 +761,7 @@ document.addEventListener('alpine:init', () => {
     },
     learnFor(material) { return learnFor(material); },
     moistureWord(level) { return moistureWord(level); },
-    moistureAdvice(s) { return moistureAdvice(s.material, s.location === BOX_LOC); },
+    moistureAdvice(s) { return moistureAdvice(s.material, s.location === BOX_LOC, s.location === SEALED); },
     // 3 drops: 'full' | 'half' | 'empty' for drop i (0–2)
     drop(level, i) { return level >= i + 1 ? 'full' : level >= i + 0.5 ? 'half' : 'empty'; },
     glueText(g) {

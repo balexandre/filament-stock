@@ -139,13 +139,13 @@
         <span aria-hidden="true" class="text-2xl">›</span>
       </a>
 
-      <button x-show="dryDue.length" type="button" @click="$refs.dry.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+      <button x-show="dryDue.length" type="button" @click="scrollToDue()"
               class="w-full text-left flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-800 focus-ring">
         <span class="text-3xl" aria-hidden="true">💧</span>
         <span class="flex-1">
           <span class="block font-bold text-amber-900 dark:text-amber-200"
                 x-text="simple ? `The ${dryDue[0]?.name} beads are tired` + (dryDue.length > 1 ? ' (and more)' : '') : `Desiccant due: ${dryDue.map(d => d.name).join(', ')}`"></span>
-          <span class="block text-sm text-amber-800 dark:text-amber-300" x-text="simple ? 'Swap them with a grown-up 🙂' : 'Tap to see dry storage'"></span>
+          <span class="block text-sm text-amber-800 dark:text-amber-300" x-text="simple ? 'Refresh them with a grown-up 🙂' : 'Tap to see dry storage'"></span>
         </span>
         <span aria-hidden="true" class="text-2xl">›</span>
       </button>
@@ -163,7 +163,7 @@
       <p class="text-center text-sm text-slate-500 -mt-3">📷 Tip: point your phone camera at a spool’s QR label, or tap its NFC sticker.</p>
 
       <!-- AMS units: front view, styled like the X2D wood-cabinet model (dark body, smoked lid, slot LEDs) -->
-      <div>
+      <div x-ref="ams" class="scroll-mt-20">
         <div class="flex items-center justify-between mb-2 gap-2">
           <h2 class="font-bold text-lg" x-text="simple ? 'What’s in the printer' : 'Bambu Lab X2D — loaded now'"></h2>
           <span x-show="!simple" class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 shrink-0">Default printer</span>
@@ -172,17 +172,33 @@
         <div class="grid grid-cols-[minmax(0,372fr)_minmax(0,200fr)] gap-3 items-end">
           <template x-for="unit in amsUnits" :key="unit.name">
             <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-sm h-full flex flex-col" role="group" :aria-label="unit.name">
-              <div class="mb-2">
-                <h3 class="font-extrabold leading-tight" x-text="unit.name"></h3>
-                <p class="text-xs text-slate-500" x-text="unit.sub"></p>
+              <div class="mb-2 flex items-start gap-2">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-extrabold leading-tight whitespace-nowrap" x-text="unit.name"></h3>
+                  <p class="text-xs text-slate-500" x-text="unit.sub"></p>
+                </div>
+                <!-- desiccant gauge: ring = how fresh the beads are; tap to log a change -->
+                <template x-if="unit.dry">
+                  <button type="button" @click="openDry(unit.dry)" class="shrink-0 flex items-center gap-1 h-8 pl-0.5 pr-2 rounded-full whitespace-nowrap border-2 text-xs font-bold focus-ring"
+                          :class="dryGauge(unit.dry).key === 'due' ? 'bg-red-600 border-red-600 text-white' : 'border-slate-200 dark:border-slate-700 ' + dryGauge(unit.dry).cls"
+                          :title="(simple ? 'Dry beads: ' : 'Desiccant: ') + dryGauge(unit.dry).label + (unit.dry.last_changed_at ? ' · changed ' + ago(unit.dry.last_changed_at) : '')"
+                          :aria-label="unit.name + (simple ? ' dry beads: ' : ' desiccant: ') + dryGauge(unit.dry).label + '. Tap to log a change.'">
+                    <span class="w-6 h-6 rounded-full grid place-items-center" :style="dryGauge(unit.dry).ring" aria-hidden="true">
+                      <span class="w-[18px] h-[18px] rounded-full bg-white dark:bg-slate-900 grid place-items-center text-[10px] leading-none">💧</span>
+                    </span>
+                    <span :class="unit.ht && 'hidden sm:inline'" x-text="dryGauge(unit.dry).text"></span>
+                    <!-- the AMS HT card is narrow on phones: "50d", "!" or "?" -->
+                    <span x-show="unit.ht" class="sm:hidden" x-text="dryGauge(unit.dry).short"></span>
+                  </button>
+                </template>
               </div>
               <div class="mt-auto">
                 <div class="ams-body" :class="unit.ht && 'ams-ht'">
                   <div class="ams-lid">
                     <div class="grid gap-1.5" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`">
                       <template x-for="slot in unit.slots" :key="slot.loc">
-                        <a :href="slot.spool ? '#/s/' + slot.spool.code : '#/add'" class="ams-slot focus-ring"
-                           :aria-label="slot.loc + ': ' + (slot.spool ? slot.spool.name + ' ' + slot.spool.material + ', ' + fmt(slot.spool.remaining_g) + ' grams left, ' + status(slot.spool).label : 'empty, add a spool')">
+                        <a :href="slot.spool ? '#/s/' + slot.spool.code : '#/'" @click="if (!slot.spool) { $event.preventDefault(); openSlot(slot.loc) }" class="ams-slot focus-ring"
+                           :aria-label="slot.loc + ': ' + (slot.spool ? slot.spool.name + ' ' + slot.spool.material + ', ' + fmt(slot.spool.remaining_g) + ' grams left, ' + status(slot.spool).label : 'empty, choose a spool to load')">
                           <div class="spool" :class="!slot.spool && 'spool-empty'" :style="slot.spool ? spoolFill(slot.spool) : ''">
                             <span x-show="!slot.spool" class="text-slate-400 text-lg font-bold" aria-hidden="true">+</span>
                           </div>
@@ -199,12 +215,14 @@
                     </template>
                   </div>
                 </div>
-                <div class="mt-2 grid gap-1.5 text-center" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`" aria-hidden="true">
+                <div class="mt-2 grid gap-1.5 text-center items-start" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`" aria-hidden="true">
                   <template x-for="slot in unit.slots" :key="slot.loc">
                     <div class="min-w-0">
                       <div class="text-xs font-bold truncate" x-text="slot.spool ? fmt(slot.spool.remaining_g) + ' g' : 'empty'"></div>
-                      <div class="text-[11px] truncate" :class="slot.spool ? status(slot.spool).cls : 'text-slate-400'"
-                           x-text="slot.spool ? (unit.ht || !simple ? slot.spool.name : status(slot.spool).label.split(' ')[0]) : '—'"></div>
+                      <!-- full name, wrapping up to 3 lines (the cards have the height), then the material -->
+                      <div class="text-[11px] leading-tight line-clamp-3 break-words" :class="slot.spool ? status(slot.spool).cls : 'text-slate-400'"
+                           :title="slot.spool ? slot.spool.name : ''" x-text="slot.spool ? slot.spool.name : '—'"></div>
+                      <div x-show="slot.spool" class="text-[10px] text-slate-500 truncate" x-text="slot.spool?.material"></div>
                     </div>
                   </template>
                 </div>
@@ -215,7 +233,7 @@
       </div>
 
       <!-- Desiccant / dry storage -->
-      <div x-show="activeDry.length || boxedSpools.length" x-ref="dry" class="scroll-mt-20">
+      <div x-show="boxDry.length || boxedSpools.length" x-ref="dry" class="scroll-mt-20">
         <h2 class="font-bold text-lg mb-2" x-text="simple ? 'Dry beads 💧' : 'Desiccant'"></h2>
         <div class="grid sm:grid-cols-3 gap-3">
           <!-- one dry box per spool -->
@@ -224,7 +242,7 @@
               <span class="text-3xl" aria-hidden="true">📦</span>
               <div class="flex-1 min-w-0">
                 <h3 class="font-bold">Dry boxes</h3>
-                <p class="text-xs text-slate-500" x-text="(simple ? 'one box per roll · swap every ' : 'one per spool · every ') + (me?.household?.box_desiccant_days || 30) + ' days'"></p>
+                <p class="text-xs text-slate-500" x-text="(simple ? 'one box per roll · refresh every ' : 'one per spool · every ') + (me?.household?.box_desiccant_days || 30) + ' days'"></p>
               </div>
             </div>
             <ul class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -243,19 +261,19 @@
                   </div>
                   <button type="button" @click="openDry(s, true)" class="shrink-0 h-11 px-3 rounded-xl font-bold border-2 focus-ring"
                           :class="['due', 'unknown'].includes(boxStatus(s).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
-                          :aria-label="'Log desiccant change for ' + s.name + ' ' + s.material" x-text="simple ? '♻️ Swapped' : '♻️ Changed'"></button>
+                          :aria-label="'Log desiccant change for ' + s.name + ' ' + s.material" x-text="simple ? '♻️ Done' : '♻️ Changed'"></button>
                 </li>
               </template>
             </ul>
           </div>
-          <template x-for="d in activeDry" :key="d.id">
+          <template x-for="d in boxDry" :key="d.id">
             <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
               <div class="flex items-center gap-3">
                 <span class="text-3xl" aria-hidden="true" x-text="d.kind === 'ams' ? '🖨️' : '📦'"></span>
                 <div class="flex-1 min-w-0">
                   <h3 class="font-bold truncate" x-text="d.name"></h3>
                   <p class="text-xs text-slate-500"
-                     x-text="(simple ? 'swap every ' : 'every ') + d.interval_days + ' days' + (spoolsIn(d) ? ' · ' + spoolsIn(d) + ' spool' + (spoolsIn(d) === 1 ? '' : 's') + ' inside' : '')"></p>
+                     x-text="(simple ? 'refresh every ' : 'every ') + d.interval_days + ' days' + (spoolsIn(d) ? ' · ' + spoolsIn(d) + ' spool' + (spoolsIn(d) === 1 ? '' : 's') + ' inside' : '')"></p>
                 </div>
               </div>
               <div class="h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden" role="progressbar"
@@ -267,10 +285,10 @@
                 <span class="font-semibold text-right" :class="dryStatus(d).cls" x-text="dryStatus(d).label"></span>
               </div>
               <p x-show="!simple && d.last_changed_at" class="text-xs text-slate-500"
-                 x-text="(d.last_action === 'recharged' ? '🔥 Recharged' : '🆕 New packs') + (d.last_changed_by ? ' by ' + d.last_changed_by : '') + (d.last_humidity_pct !== null && d.last_humidity_pct !== undefined ? ' · 💧 ' + (+d.last_humidity_pct) + ' %' : '')"></p>
+                 x-text="(d.last_action === 'recharged' ? '🔥 Dried the beads' : '🫙 Refilled') + (d.last_changed_by ? ' by ' + d.last_changed_by : '') + (d.last_humidity_pct !== null && d.last_humidity_pct !== undefined ? ' · 💧 ' + (+d.last_humidity_pct) + ' %' : '')"></p>
               <button type="button" @click="openDry(d)" class="mt-auto h-12 rounded-xl font-bold border-2 focus-ring"
                       :class="['due', 'unknown'].includes(dryStatus(d).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
-                      x-text="simple ? '♻️ I swapped the beads' : (d.last_changed_at ? '♻️ Changed it' : '♻️ Log last change')"></button>
+                      x-text="simple ? '♻️ I refreshed the beads' : (d.last_changed_at ? '♻️ Changed it' : '♻️ Log last change')"></button>
             </div>
           </template>
         </div>
@@ -291,16 +309,16 @@
         <a href="#/add" class="inline-block mt-3 h-12 px-6 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold">Add your first spool</a>
       </div>
 
-      <ul class="grid sm:grid-cols-2 gap-3">
+      <ul class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <template x-for="s in filtered" :key="s.id">
           <li>
-            <a :href="'#/s/' + s.code" class="w-full text-left bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm flex gap-4 items-center hover:shadow-md transition focus-ring">
-              <div class="w-16 h-16 shrink-0 rounded-full ring-4 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="swatch(s)">
+            <a :href="'#/s/' + s.code" :title="s.brand + ' ' + s.name + ' · ' + s.material" class="h-full w-full text-left bg-white dark:bg-slate-900 rounded-2xl p-4 lg:p-3 shadow-sm flex gap-4 lg:gap-3 items-center hover:shadow-md transition focus-ring">
+              <div class="w-16 h-16 lg:w-12 lg:h-12 shrink-0 rounded-full ring-4 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="swatch(s)">
                 <div class="w-5 h-5 rounded-full bg-white/80 dark:bg-slate-900/80"></div>
               </div>
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="font-bold truncate" x-text="s.name"></span>
+                <div class="flex items-center gap-2 lg:flex-col-reverse lg:items-start lg:gap-1">
+                  <span class="font-bold truncate lg:whitespace-normal lg:line-clamp-2 lg:leading-tight" x-text="s.name"></span>
                   <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-semibold shrink-0" x-text="s.material"></span>
                 </div>
                 <div class="text-sm text-slate-500 truncate" x-text="simple ? '📍 ' + s.location : s.brand + ' · ' + s.location + ' · ' + s.code"></div>
@@ -424,13 +442,16 @@
             <span class="text-3xl" aria-hidden="true">📦</span>
             <div class="flex-1 min-w-0">
               <div class="font-bold" id="drybox-label" x-text="simple ? 'Is it in its dry box?' : 'In its dry box'"></div>
-              <div class="text-xs text-slate-500" x-text="current.location === 'Dry box' ? 'sealed with desiccant' : 'not boxed · 📍 ' + current.location"></div>
+              <div class="text-xs text-slate-500" x-text="current.location === 'Dry box' ? 'sealed with desiccant' : current.location === 'Unopened' ? '🔒 unopened · switch on when you open it' : 'not boxed · 📍 ' + current.location"></div>
             </div>
             <button type="button" role="switch" :aria-checked="current.location === 'Dry box'" aria-labelledby="drybox-label" @click="toggleDryBox()"
                     class="relative w-14 h-8 rounded-full transition focus-ring shrink-0" :class="current.location === 'Dry box' ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'">
               <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition" :class="current.location === 'Dry box' && 'translate-x-6'"></span>
             </button>
           </div>
+          <p x-show="current.location === 'Unopened'" class="text-sm text-slate-500">
+            Opened it but no dry box? <button type="button" class="link" @click="moveCurrent('Shelf')">Put it on the shelf</button>
+          </p>
           <div x-show="current.location === 'Dry box'" class="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div class="flex-1 min-w-0">
               <div class="font-semibold text-sm" x-text="simple ? 'Its beads' : 'Desiccant'"></div>
@@ -441,7 +462,7 @@
             </div>
             <button type="button" @click="openDry(current, true)" class="shrink-0 h-11 px-3 rounded-xl font-bold border-2 focus-ring"
                     :class="['due', 'unknown'].includes(boxStatus(current).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
-                    x-text="simple ? '♻️ Swapped' : '♻️ Changed'"></button>
+                    x-text="simple ? '♻️ Done' : '♻️ Changed'"></button>
           </div>
           </div>
 
@@ -484,7 +505,7 @@
             <label class="block"><span class="lbl">Material</span><input x-model="edit.material" required class="field mt-1 uppercase"></label>
             <label class="block"><span class="lbl">Colour</span><input type="color" x-model="edit.hex" class="mt-1 w-full h-12 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
             <label class="block"><span class="lbl">Location</span>
-              <select x-model="edit.location" class="field mt-1"><template x-for="l in locations" :key="l"><option :value="l" x-text="l"></option></template></select></label>
+              <select x-model="edit.location" class="field mt-1"><template x-for="l in locations" :key="l"><option :value="l" x-text="l" :selected="l === edit.location"></option></template></select></label>
             <label class="block"><span class="lbl">Filament when new (g)</span><input type="number" min="1" x-model="edit.initial_g" required class="field mt-1"></label>
             <label class="block"><span class="lbl">Empty spool weight (g)</span><input type="number" min="0" x-model="edit.spool_weight_g" class="field mt-1"></label>
             <label class="block"><span class="lbl">Warn me below (g)</span>
@@ -516,31 +537,152 @@
       </ol>
 
       <div x-show="add.step===1" class="space-y-3">
-        <label for="q" class="font-semibold" x-text="simple ? 'Type the brand or colour on the box' : 'Search brand, colour or material'"></label>
-        <input id="q" x-model="add.q" @input.debounce.200ms="searchCatalog()" placeholder="e.g. bambu pla jade" autocomplete="off"
-               class="w-full h-14 px-4 text-lg rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+        <div class="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-slate-200 dark:bg-slate-800" role="group" aria-label="How to find it">
+          <button type="button" @click="add.mode='guide'" :aria-pressed="add.mode==='guide'" class="h-11 rounded-xl font-bold focus-ring"
+                  :class="add.mode==='guide' ? 'bg-white dark:bg-slate-900 shadow-sm' : 'text-slate-600 dark:text-slate-300'">🧭 Step by step</button>
+          <button type="button" @click="add.mode='search'; $nextTick(() => $refs.q.focus())" :aria-pressed="add.mode==='search'" class="h-11 rounded-xl font-bold focus-ring"
+                  :class="add.mode==='search' ? 'bg-white dark:bg-slate-900 shadow-sm' : 'text-slate-600 dark:text-slate-300'">🔎 Search</button>
+        </div>
         <p class="text-xs text-slate-500" x-show="catalog.state==='loading'">⏳ Downloading the SpoolmanDB catalogue (~6 MB, only the first time)…</p>
-        <p class="text-xs text-slate-500" x-show="catalog.state==='ready'" x-text="`Searching ${catalog.count.toLocaleString()} filaments from SpoolmanDB.`"></p>
+        <p class="text-xs text-slate-500" x-show="catalog.state==='ready'" x-text="`${catalog.count.toLocaleString()} filaments from SpoolmanDB, all 1.75 mm (what both printers use).`"></p>
         <p class="text-sm text-red-700 dark:text-red-300" x-show="catalog.state==='error'">Couldn’t load the catalogue (<span x-text="catalog.err"></span>). <button class="link" @click="loadCatalog(true)">Retry</button></p>
-        <ul class="space-y-2">
-          <template x-for="f in add.results" :key="f.id">
-            <li><button @click="pickFilament(f)" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
-              <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(f)"></span>
-              <span class="flex-1 min-w-0"><b x-text="f.name"></b><br>
-                <span class="text-sm text-slate-500" x-text="f.brand + ' · ' + f.material + ' · ' + f.weight + ' g' + (f.finish ? ' · ' + f.finish : '') + (f.translucent ? ' · translucent' : '') + (f.glow ? ' · glow' : '')"></span></span>
-              <span aria-hidden="true">›</span>
-            </button></li>
-          </template>
-        </ul>
-        <p x-show="add.q.length > 2 && !add.results.length && catalog.state==='ready'" class="text-sm text-slate-500">Nothing found.</p>
+
+        <!-- guided: Brand › Material › Type › Colours -->
+        <div x-show="add.mode==='guide' && catalog.state==='ready'" class="space-y-3">
+          <nav x-show="add.g.brand" class="flex flex-wrap items-center gap-1 text-sm" aria-label="Your choices so far">
+            <button type="button" @click="guideBack('brand')" class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 font-semibold focus-ring" x-text="add.g.brand?.name"></button>
+            <template x-if="add.g.mat"><span class="flex items-center gap-1"><span aria-hidden="true">›</span>
+              <button type="button" @click="guideBack('material')" class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 font-semibold focus-ring" x-text="add.g.mat"></button></span></template>
+            <template x-if="add.g.line && add.g.groups.length > 1"><span class="flex items-center gap-1"><span aria-hidden="true">›</span>
+              <button type="button" @click="guideBack('line')" class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 font-semibold focus-ring" x-text="add.g.line?.label"></button></span></template>
+            <span class="text-slate-500 ml-1">(tap to change)</span>
+          </nav>
+
+          <!-- 1 · brand -->
+          <div x-show="!add.g.brand" class="space-y-2">
+            <h2 class="font-bold text-lg" x-text="simple ? '1. Which brand is on the box?' : '1. Brand'"></h2>
+            <input x-model="add.g.brandQ" placeholder="Filter brands, e.g. sunlu" autocomplete="off" aria-label="Filter brands" class="field">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <template x-for="b in guideBrands().slice(0, add.g.brandQ || add.g.allBrands ? 999 : 12)" :key="b.name">
+                <button type="button" @click="pickBrand(b)" class="min-h-[3.5rem] px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
+                  <b class="block" x-text="b.name"></b><span class="text-xs text-slate-500" x-text="b.count + ' filaments'"></span>
+                </button>
+              </template>
+            </div>
+            <button type="button" x-show="!add.g.brandQ && !add.g.allBrands && catBrands.length > 12" @click="add.g.allBrands = true" class="link text-sm" x-text="`Show all ${catBrands.length} brands`"></button>
+            <p x-show="add.g.brandQ && !guideBrands().length" class="text-sm text-slate-500">No brand matches. Try <button type="button" class="link" @click="add.mode='search'; add.q=add.g.brandQ; searchCatalog()">searching</button> or add it by hand below.</p>
+          </div>
+
+          <!-- 2 · material -->
+          <div x-show="add.g.brand && !add.g.mat" class="space-y-2">
+            <h2 class="font-bold text-lg" x-text="simple ? '2. Which plastic? (it’s big on the label)' : '2. Material'"></h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <template x-for="m in guideMaterials()" :key="m.name">
+                <button type="button" @click="pickMaterial(m.name)" class="min-h-[3.5rem] px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
+                  <b class="block text-lg" x-text="m.name"></b><span class="text-xs text-slate-500" x-text="m.count + (m.count === 1 ? ' colour' : ' colours')"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- 3 · product line -->
+          <div x-show="add.g.mat && !add.g.line" class="space-y-2">
+            <h2 class="font-bold text-lg" x-text="simple ? '3. Which kind? (look for words like Matte, Silk or 2.0)' : '3. Type'"></h2>
+            <p x-show="add.g.state==='loading'" class="text-sm text-slate-500">⏳ Loading the types…</p>
+            <template x-for="gr in add.g.groups" :key="gr.id">
+              <button type="button" @click="add.g.line = gr" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
+                <span class="flex-1 min-w-0">
+                  <b class="block" x-text="gr.label"></b>
+                  <span class="block text-sm text-slate-500" x-show="gr.kid" x-text="gr.kid"></span>
+                  <span class="flex gap-1 mt-1" aria-hidden="true">
+                    <template x-for="e in gr.entries.slice(0, 10)" :key="e.f.id"><span class="w-4 h-4 rounded-full ring-1 ring-slate-300 dark:ring-slate-600" :style="swatch(e.f)"></span></template>
+                  </span>
+                </span>
+                <span class="text-sm text-slate-500 shrink-0 text-right"><span x-text="gr.entries.length + (gr.entries.length === 1 ? ' colour' : ' colours')"></span><br><span class="text-xs" x-text="gr.spec"></span></span>
+                <span aria-hidden="true">›</span>
+              </button>
+            </template>
+          </div>
+
+          <!-- 4 · colours (several at once) -->
+          <div x-show="add.g.line" class="space-y-2">
+            <h2 class="font-bold text-lg" x-text="simple ? '4. Tap every colour you got' : '4. Colours'"></h2>
+            <p class="text-sm"><span class="inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100 font-semibold" x-text="'✔ ' + (add.g.line?.spec || '') + ' (from SpoolmanDB)'"></span></p>
+            <p class="text-sm text-slate-500">Tap a colour once for each roll. Got a box of 4? Tap all 4 colours.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <template x-for="e in (add.g.line?.entries || [])" :key="e.f.id">
+                <div class="relative">
+                  <button type="button" @click="bumpPick(e.f, 1)" class="w-full min-h-[3.5rem] flex items-center gap-2 p-2 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left focus-ring"
+                          :class="pickQty(e.f) ? 'ring-4 ring-indigo-500' : 'hover:ring-2 ring-indigo-300'"
+                          :aria-label="e.colour + (pickQty(e.f) ? ', ' + pickQty(e.f) + ' picked, tap to add one more' : ', tap to pick')">
+                    <span class="w-9 h-9 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(e.f)"></span>
+                    <span class="flex-1 min-w-0 text-sm font-semibold leading-tight" x-text="e.colour"></span>
+                    <span x-show="pickQty(e.f)" class="shrink-0 min-w-[1.75rem] h-7 px-1 rounded-full bg-indigo-600 text-white text-sm font-bold grid place-items-center" x-text="'×' + pickQty(e.f)"></span>
+                  </button>
+                  <button type="button" x-show="pickQty(e.f)" @click="bumpPick(e.f, -1)" class="absolute -top-2 -left-2 w-7 h-7 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold focus-ring" :aria-label="'One less ' + e.colour">−</button>
+                </div>
+              </template>
+            </div>
+            <div class="rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-3 space-y-2">
+              <button type="button" x-show="!add.g.missing.open" @click="add.g.missing.open = true; $nextTick(() => $refs.missingName.focus())" class="link text-sm font-semibold">🎨 Colour not in this list?</button>
+              <form x-show="add.g.missing.open" @submit.prevent="addMissingColour()" class="space-y-2">
+                <p class="text-sm text-slate-500">SpoolmanDB doesn’t know every colour yet. Add it to <b x-text="add.g.line?.label"></b>: brand, plastic, size and temperatures stay the same, you only give the colour.</p>
+                <div class="flex gap-2">
+                  <input x-ref="missingName" x-model="add.g.missing.name" placeholder="Colour name, e.g. Skin" aria-label="Colour name" class="field flex-1 min-w-0">
+                  <input type="color" x-model="add.g.missing.hex" aria-label="Colour" class="w-14 h-12 shrink-0 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900">
+                </div>
+                <div class="flex gap-2">
+                  <button type="submit" class="h-11 px-4 rounded-xl bg-indigo-600 text-white font-bold focus-ring">Add colour</button>
+                  <button type="button" @click="add.g.missing.open = false" class="btn-outline">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- search -->
+        <div x-show="add.mode==='search'" class="space-y-3">
+          <label for="q" class="font-semibold" x-text="simple ? 'Type the brand or colour on the box' : 'Search brand, colour or material'"></label>
+          <input id="q" x-ref="q" x-model="add.q" @input.debounce.200ms="searchCatalog()" placeholder="e.g. sunlu petg oak" autocomplete="off"
+                 class="w-full h-14 px-4 text-lg rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+          <ul class="space-y-2">
+            <template x-for="f in add.results" :key="f.id">
+              <li><button @click="pickFilament(f)" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
+                <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(f)"></span>
+                <span class="flex-1 min-w-0"><b x-text="f.name"></b><br>
+                  <span class="text-sm text-slate-500" x-text="f.brand + ' · ' + f.material + ' · ' + f.diameter + ' mm · ' + f.weight + ' g' + (f.finish ? ' · ' + f.finish : '') + (f.translucent ? ' · translucent' : '') + (f.glow ? ' · glow' : '')"></span></span>
+                <span aria-hidden="true">›</span>
+              </button></li>
+            </template>
+          </ul>
+          <p x-show="add.q.length > 2 && !add.results.length && catalog.state==='ready'" class="text-sm text-slate-500">Nothing found.</p>
+        </div>
         <button @click="customFilament()" class="text-sm link">Can’t find it? Add it by hand</button>
+
+        <!-- picked so far + next -->
+        <div x-show="add.picks.length" class="sticky bottom-3 z-10 flex items-center gap-3 p-3 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-lg">
+          <span class="flex -space-x-2 pl-0.5" aria-hidden="true">
+            <template x-for="p in add.picks.slice(0, 8)" :key="p.f.id"><span class="w-7 h-7 rounded-full ring-2 ring-slate-900 dark:ring-white" :style="swatch(p.f)"></span></template>
+          </span>
+          <span class="flex-1 font-semibold" x-text="addTotal + (addTotal === 1 ? ' roll picked' : ' rolls picked')"></span>
+          <button type="button" @click="toDetails()" class="h-11 px-5 rounded-xl bg-indigo-600 text-white font-bold focus-ring">Next ›</button>
+        </div>
       </div>
 
       <form x-show="add.step===2" @submit.prevent="saveAdd()" class="space-y-4">
-        <div x-show="add.pick" class="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
-          <span class="w-12 h-12 rounded-full shrink-0" :style="add.pick ? swatch(add.pick) : ''"></span>
-          <div class="flex-1"><b x-text="add.pick?.name"></b><br><span class="text-sm text-slate-500" x-text="(add.pick?.brand || '') + ' · ' + (add.pick?.material || '')"></span></div>
-          <button type="button" @click="add.step=1" class="link text-sm">Change</button>
+        <div x-show="!add.custom && add.picks.length" class="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-sm space-y-2">
+          <template x-for="p in add.picks" :key="p.f.id">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(p.f)"></span>
+              <div class="flex-1 min-w-0"><b x-text="p.f.name"></b><br><span class="text-sm text-slate-500" x-text="p.f.brand + ' · ' + p.f.material + ' · ' + p.f.diameter + ' mm' + (p.f.custom ? ' · colour not in SpoolmanDB' : '')"></span></div>
+              <div class="flex items-center gap-1 shrink-0" role="group" :aria-label="'How many ' + p.f.name">
+                <button type="button" @click="bumpPick(p.f, -1); if (!add.picks.length) add.step = 1" class="w-9 h-9 rounded-full border-2 border-slate-300 dark:border-slate-600 font-bold focus-ring" :aria-label="'One less ' + p.f.name">−</button>
+                <span class="w-6 text-center font-bold" x-text="p.qty"></span>
+                <button type="button" @click="bumpPick(p.f, 1)" class="w-9 h-9 rounded-full border-2 border-slate-300 dark:border-slate-600 font-bold focus-ring" :aria-label="'One more ' + p.f.name">+</button>
+              </div>
+            </div>
+          </template>
+          <button type="button" @click="add.step=1" class="link text-sm">＋ Add another colour</button>
         </div>
         <div x-show="add.custom" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm grid grid-cols-2 gap-3">
           <label class="block col-span-2"><span class="lbl">Name / colour</span><input x-model="add.name" class="field mt-1" placeholder="e.g. Galaxy Purple"></label>
@@ -552,20 +694,31 @@
         <fieldset>
           <legend class="font-semibold mb-2" x-text="simple ? 'Where will it live?' : 'Location'"></legend>
           <div class="grid grid-cols-4 gap-2">
-            <template x-for="l in locations" :key="l">
+            <template x-for="l in addLocations" :key="l">
               <button type="button" @click="add.location=l" :aria-pressed="add.location===l" class="h-12 rounded-xl border-2 font-semibold text-sm focus-ring"
                       :class="add.location===l ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'" x-text="l"></button>
             </template>
           </div>
           <p x-show="SLOTS.includes(add.location) || add.location==='Ender 3'" class="text-xs text-slate-500 mt-1">Whatever is in that slot now will move to the Shelf.</p>
+          <p x-show="addTotal > 1" class="text-xs text-slate-500 mt-1">All of them go here. Put them in a printer later from each spool’s page.</p>
+        </fieldset>
+        <fieldset>
+          <legend class="font-semibold mb-2" x-text="simple ? 'Did it come on a spool?' : 'Spool'"></legend>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" @click="setRefill(false)" :aria-pressed="!add.refill" class="h-12 rounded-xl border-2 font-semibold text-sm focus-ring"
+                    :class="!add.refill ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">🧵 On a spool</button>
+            <button type="button" @click="setRefill(true)" :aria-pressed="add.refill" class="h-12 rounded-xl border-2 font-semibold text-sm focus-ring"
+                    :class="add.refill ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">♻️ Refill (no spool)</button>
+          </div>
+          <p x-show="add.refill" class="text-sm mt-2 p-3 rounded-xl bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100">♻️ A refill is just the coil of filament. Fit it on an empty reusable spool before it goes in the AMS, so you need one per refill you use at the same time (print one or keep spares).</p>
         </fieldset>
         <div class="grid grid-cols-2 gap-3">
-          <label class="block"><span class="lbl" x-text="simple ? 'How many rolls?' : 'Quantity'"></span><input type="number" min="1" max="20" x-model="add.qty" class="field mt-1"></label>
+          <label class="block" x-show="add.custom"><span class="lbl" x-text="simple ? 'How many rolls?' : 'Quantity'"></span><input type="number" min="1" max="20" x-model="add.qty" class="field mt-1"></label>
           <label class="block" x-show="!simple"><span class="lbl">Filament per roll (g)</span><input type="number" min="1" x-model="add.initial" class="field mt-1"></label>
-          <label class="block" x-show="!simple"><span class="lbl">Empty spool (g)</span><input type="number" min="0" x-model="add.spoolWeight" placeholder="unknown" class="field mt-1"></label>
+          <label class="block" x-show="!simple"><span class="lbl" x-text="add.refill ? 'Reusable spool (g)' : 'Empty spool (g)'"></span><input type="number" min="0" x-model="add.spoolWeight" placeholder="unknown" class="field mt-1"></label>
           <label class="block" x-show="adult && !simple"><span class="lbl">Warn me below (g)</span><input type="number" min="0" x-model="add.min" :placeholder="'default ' + (me?.household?.default_min_g ?? 200)" class="field mt-1"></label>
         </div>
-        <button type="submit" :disabled="add.saving" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-bold" x-text="add.saving ? 'Saving…' : 'Save'"></button>
+        <button type="submit" :disabled="add.saving" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-bold" x-text="add.saving ? 'Saving…' : (addTotal > 1 ? `Save ${addTotal} spools` : 'Save')"></button>
       </form>
 
       <div x-show="add.step===3" class="space-y-4 text-center">
@@ -831,7 +984,7 @@
 
       <div x-show="adult" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
         <h2 class="font-bold">Dry storage</h2>
-        <p class="text-sm text-slate-500">How often the desiccant should be swapped or recharged. Turn off what you don’t use.</p>
+        <p class="text-sm text-slate-500">How often the desiccant should be refilled or dried. Turn off what you don’t use.</p>
         <form x-show="isOwner" @submit.prevent="saveHousehold()" class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] gap-2 items-end">
           <div><span class="lbl">📦 Dry boxes (one per spool)</span>
             <p class="text-xs text-slate-500 mt-1">Switch on “In its dry box” on a spool’s page.</p></div>
@@ -932,15 +1085,15 @@
   <form @submit.prevent="saveDry()" role="dialog" aria-modal="true" aria-labelledby="dry-title"
         class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
     <h2 id="dry-title" class="text-xl font-extrabold text-center" x-text="(simple ? 'Fresh beads for the ' : 'Desiccant · ') + (dry.title || '')"></h2>
-    <p x-show="simple" class="text-sm text-center text-slate-600 dark:text-slate-300">💡 If the beads changed colour, they are full of water and need swapping.</p>
+    <p x-show="simple" class="text-sm text-center text-slate-600 dark:text-slate-300">💡 If the beads changed colour, they are full of water: pour in new beads, or dry the old ones.</p>
     <fieldset class="grid grid-cols-2 gap-2">
       <legend class="sr-only">What did you do?</legend>
       <button type="button" @click="dry.action='replaced'" :aria-pressed="dry.action==='replaced'" class="p-3 rounded-2xl border-2 font-bold focus-ring"
               :class="dry.action==='replaced' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">
-        <span class="block text-3xl" aria-hidden="true">🆕</span>New packs</button>
+        <span class="block text-3xl" aria-hidden="true">🫙</span><span x-text="simple ? 'Poured in new beads' : 'Refilled (new beads)'"></span></button>
       <button type="button" @click="dry.action='recharged'" :aria-pressed="dry.action==='recharged'" class="p-3 rounded-2xl border-2 font-bold focus-ring"
               :class="dry.action==='recharged' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">
-        <span class="block text-3xl" aria-hidden="true">🔥</span><span x-text="simple ? 'Dried the old ones' : 'Recharged (dried)'"></span></button>
+        <span class="block text-3xl" aria-hidden="true">🔥</span><span x-text="simple ? 'Dried the old beads' : 'Dried (recharged)'"></span></button>
     </fieldset>
     <label class="block"><span class="lbl">Hygrometer reading <span class="font-normal text-slate-500">(optional)</span></span>
       <span class="flex items-center gap-2 mt-1">
@@ -955,13 +1108,39 @@
         <template x-for="h in dry.history" :key="h.id">
           <li class="py-1.5 flex justify-between gap-2">
             <span class="truncate" x-text="fmtDate(h.created_at) + ' · ' + (h.by?.display_name || '?') + (h.note ? ' · ' + h.note : '')"></span>
-            <span class="shrink-0" x-text="(h.action === 'recharged' ? '🔥' : '🆕') + (h.humidity_pct !== null ? ' 💧 ' + (+h.humidity_pct) + ' %' : '')"></span>
+            <span class="shrink-0" x-text="(h.action === 'recharged' ? '🔥' : '🫙') + (h.humidity_pct !== null ? ' 💧 ' + (+h.humidity_pct) + ' %' : '')"></span>
           </li>
         </template>
       </ul>
     </div>
     <button type="button" @click="dry.open=false" class="btn-outline w-full justify-center">Cancel</button>
   </form>
+</div>
+
+<!-- Slot picker: "+" on an empty slot loads a spool you already have -->
+<div x-show="slotPick.open" x-cloak class="no-print fixed inset-0 z-40 bg-black/50 grid place-items-center p-4" @keydown.escape.window="slotPick.open=false" @click.self="slotPick.open=false">
+  <div role="dialog" aria-modal="true" aria-labelledby="slot-title" class="bg-white dark:bg-slate-900 rounded-3xl p-5 max-w-md w-full space-y-3 max-h-[90vh] flex flex-col">
+    <div class="flex items-start gap-2">
+      <h2 id="slot-title" class="flex-1 text-xl font-extrabold" x-text="(simple ? 'Which roll goes in ' : 'Load into ') + slotPick.loc + '?'"></h2>
+      <button type="button" @click="slotPick.open=false" class="w-10 h-10 rounded-full text-xl focus-ring hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm text-slate-500" x-show="slotCandidates.length">Spools on the shelf, in a dry box or still unopened. Tap one to load it.</p>
+    <ul class="space-y-2 overflow-y-auto -mx-1 px-1">
+      <template x-for="s in slotCandidates" :key="s.id">
+        <li><button type="button" @click="loadIntoSlot(s)" :disabled="slotPick.saving" class="w-full flex items-center gap-3 p-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-left hover:border-indigo-400 disabled:opacity-60 focus-ring">
+          <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(s)"></span>
+          <span class="flex-1 min-w-0">
+            <b class="block truncate" x-text="s.name"></b>
+            <span class="block text-sm text-slate-500 truncate" x-text="s.material + ' · ' + (s.location === 'Dry box' ? '📦 ' : '📍 ') + s.location + ' · ' + fmt(s.remaining_g) + ' g'"></span>
+          </span>
+          <span class="text-xs font-semibold shrink-0" :class="status(s).cls" x-text="status(s).label"></span>
+        </button></li>
+      </template>
+    </ul>
+    <p x-show="!slotCandidates.length" class="text-center text-slate-500 py-4" x-text="spools.length ? 'Every spool is already in a printer.' : 'No spools yet.'"></p>
+    <button type="button" @click="addForSlot()" class="h-12 shrink-0 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 font-bold focus-ring"
+            x-text="simple ? '➕ It’s a brand-new roll' : '➕ Add a new spool for this slot'"></button>
+  </div>
 </div>
 
 <!-- NFC dialog -->

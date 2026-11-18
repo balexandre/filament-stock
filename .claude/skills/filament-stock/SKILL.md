@@ -26,7 +26,8 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
   licenses (MIT, BSD, Apache-2.0, ISC); never vendor third-party files we can't redistribute.
 - **SpoolmanDB** is the only catalogue of brands/filaments. Don't invent a catalogue table.
   The compiled `filaments.json` feeds "Add spool"; the per-brand **source** files
-  (`raw.githubusercontent.com/Donkie/SpoolmanDB/main/filaments/<brand>.json`) feed Learn.
+  (`raw.githubusercontent.com/Donkie/SpoolmanDB/main/filaments/<brand>.json`) feed Learn and the
+  "Type" step of the guided Add spool picker.
 
 ## Domain words
 
@@ -37,9 +38,9 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 | **Remaining** | Grams of filament left on a spool. The number the whole app revolves around. |
 | **Usage** | A log entry: "this print used 38 g". Remaining = initial − sum(usage). |
 | **Minimum** | A low-stock threshold, set **per filament** (summed over all its spools) with an optional per-spool override. Below it → warning + "to order" list. |
-| **Location** | Where a spool is: `AMS 1`–`AMS 4` (AMS 2 Pro), `AMS HT`, `Ender 3`, `Shelf`, `Dry box` (its own box), plus any shared boxes added in Settings. One active spool per printer slot. |
+| **Location** | Where a spool is: `AMS 1`–`AMS 4` (AMS 2 Pro), `AMS HT`, `Ender 3`, `Unopened` (still in its original sealed bag/box: the default for new spools, `SEALED` in `js/app.js`), `Shelf`, `Dry box` (its own box), plus any shared boxes added in Settings. One active spool per printer slot. |
 | **Dry box** | The spool's **own** sealed box with desiccant (one per spool, e.g. a 4 L cereal box). PLA usually stays on the Shelf. |
-| **Desiccant change** | A log entry: beads swapped (`replaced`) or dried (`recharged`), optional hygrometer %. Per dry box, AMS unit or shared box. |
+| **Desiccant change** | A log entry: refilled with new beads (`replaced`, shown as "🫙 Refilled"; we pour beads from desiccant refills, no bags) or dried (`recharged`, "🔥 Dried"), optional hygrometer %. Per dry box, AMS unit or shared box. |
 | **Card** | A printable, laminate-friendly A6 sheet with print settings for a material on the X2D. |
 
 ## Printers
@@ -63,7 +64,7 @@ All rows are owned by a `household` so adult and kid accounts see the same stock
 - `usage_log (id, spool_id, grams numeric > 0, kind 'print'|'weigh'|'adjust', note, created_by, created_at)`
 - `filament_minimums (household_id, spoolman_id, min_g)` — threshold per catalogue filament.
 - **Dry boxes are one per spool**: a spool with location `Dry box` sits in its OWN sealed box (e.g. a 4 L cereal box)
-  with desiccant. Toggled by the "In its dry box" switch on the spool page; swap interval is `households.box_desiccant_days`.
+  with desiccant. Toggled by the "In its dry box" switch on the spool page; refill interval is `households.box_desiccant_days`.
   If several spools ever share one box, that needs a new model (a shared `dry_spots` box), not this location.
 - `dry_spots (household_id, name, kind 'box'|'ams', interval_days, active, sort)` — seeded with AMS 2 Pro and AMS HT (60 d);
   `kind='box'` rows are optional *shared* boxes and become extra spool locations.
@@ -95,12 +96,36 @@ the UI must cope with the signup endpoint returning an error.
 - `filaments.json` (~6 MB, ~9.7k rows, ~7.9k at 1.75 mm): load **only** in the "Add spool" flow,
   cache it in IndexedDB with a timestamp, refresh weekly (`js/catalog.js`). Search by manufacturer + name + material,
   show the colour swatch from `color_hex` / `color_hexes`.
-- Only 1.75 mm filaments are offered. `color_hex` may be `RRGGBB` or `RRGGBBAA`.
+- Only rows SpoolmanDB marks as **1.75 mm** are offered (no fallback for a missing diameter). Show
+  the diameter/weight from the data (`specOf()` → "1.75 mm · 1 kg"), never a hard-coded "1.75".
+  `color_hex` may be `RRGGBB` or `RRGGBBAA`.
 - Settings shows the date of the last upstream change (GitHub API, `commits?path=filaments`,
   cached 30 min in `sessionStorage`; 60 unauthenticated requests/hour) against the local cache
   date, plus links to the repo and its recent changes.
 - Use `weight` as default `initial_g` and `spool_weight` for the "weigh it" feature:
   `remaining = scale_reading − spool_weight`.
+- **Add spool has two modes.** *Step by step* (default) is Brand › Material › Type › Colours;
+  *Search* is free text. Both put rows in `add.picks` (`[{ f, qty }]`), so one save can create
+  spools of several colours (a 4-colour multi-pack). Multi-spool saves only offer non-printer
+  locations (Shelf, Dry box, shared boxes); every created spool is moved there.
+  - Brand = `manufacturer`; the id prefix (`sunlu` in `sunlu_petg_…`) names the brand's source
+    file. A few files are cased differently, so `Brands.linesOf()` matches against the folder
+    listing (GitHub API, cached a week) and falls back to `<prefix>.json`.
+  - Type = a source-file entry for that material. Colours are matched to compiled rows by
+    `name === template.replace('{color_name}', colour)`. Unmatched rows go in an "Other" group.
+    If the source file fails, all colours show in one list. One type → skip straight to colours.
+    The same colour in several weights → offer the one closest to 1 kg.
+  - **Colour not in SpoolmanDB** (new colours lag behind, e.g. SUNLU PETG 2.0 "Skin"): added
+    inside the chosen type as a pick with `custom: true`, `id: 'custom:…'`. It copies brand,
+    material, diameter, weight and temperatures from the type, and its name is built from the type
+    template ("2.0 Skin"). Saved with `spoolman_id = null`, so its minimum goes in `spools.min_g`,
+    not `filament_minimums`.
+  - New spools default to **Unopened**. Non-printer locations are inserted directly; printer
+    slots go through `move_spool` (which empties the slot). Unopened spools get the "🔒 still
+    in its original bag" moisture line, and the dry-box switch is how you mark them opened.
+  - **Refill (no spool)** sets `notes = 'Refill (came without a spool)'` and clears the spool
+    weight (the user enters the reusable spool's weight). Show the hint that each refill in use
+    needs a reusable spool.
 
 ## Labels: QR + NFC
 
@@ -135,7 +160,16 @@ the UI must cope with the signup endpoint returning an error.
    spool has left (212 g). Use 212 g and mark it empty?"
 10. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
 11. **Look:** the AMS cards copy the X2D wood-cabinet model (dark `#34363b` body, smoked lid,
-    slot LEDs) at real proportions (AMS 2 Pro 372 mm, AMS HT 200 mm). The app icon is
+    slot LEDs) at real proportions (AMS 2 Pro 372 mm, AMS HT 200 mm). An empty slot's "+" opens the
+    **slot picker** (spools not in a printer: Shelf, Dry box, shared boxes; tap = `move_spool`),
+    with "Add a new spool for this slot" (preselects the slot via `pendingLoc`). Never send an
+    empty slot straight to Add spool. AMS desiccant lives **on the AMS card**: a 💧 gauge pill in the
+    top-right (`dryGauge()`: conic ring = freshness, days left, red "Change" when due; on phones
+    the narrow AMS HT shows "50d" / "!" / "?"). The Desiccant section lists only per-spool dry
+    boxes and shared boxes (`boxDry`). The due banner scrolls to whichever one is due first
+    (`scrollToDue()`). The stock list is 1 / 2 / 4 per row (phone / `sm` / `lg`). Under each slot: grams, the
+    **full spool name** (wraps, `line-clamp-3`, coloured by status) and the material, in every
+    mode. The slot LED bar under each spool is the stock status (green / amber / red). The app icon is
     `favicon.svg` (indigo `#4f46e5` tile, white spool + strand), also used as the in-app logo;
     PNGs in `icons/` and `manifest.webmanifest` for home screens.
 
@@ -186,6 +220,9 @@ the UI must cope with the signup endpoint returning an error.
 - Keep Supabase calls in the `api` object (`js/api.js`); the component never builds queries inline.
 - **Alpine gotcha:** an expression that evaluates to a *function* gets called. Store callbacks
   (like the toast's undo) but test them with `x-show="!!undoFn"`, never `x-show="undoFn"`.
+- **Alpine gotcha:** a `<select x-model>` whose options come from `x-for` shows the *first*
+  option, because the model is applied before the options exist. Always add
+  `:selected="l === model"` to each `<option>` (see the Edit spool location).
 - Tailwind's Play CDN only sees literal class names; arbitrary values need `minmax(0,…)` grid
   tracks so cards can shrink on phones.
 - No frameworks beyond Tailwind/Alpine/supabase-js/qrcode. No TypeScript, no build.
