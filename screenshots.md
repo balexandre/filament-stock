@@ -39,6 +39,20 @@ for that material.
 
 ![Spool page](docs/screenshots/spool.png)
 
+## Learn
+
+Every material at a glance: how easy it is, how much it cares about moisture, and how many Bambu
+Lab types there are. It also links to the X2D manual, the Bambu Lab Wiki and Academy, and the X2D Quick
+Guide.
+
+![Learn: all materials](docs/screenshots/learn.png)
+
+Open a material for its X2D card: nozzle and bed temperatures, plate, speed, drying, moisture,
+liquid glue and more. The card prints at A6 with a QR code. Below the card come all of Bambu Lab's types for
+that material, with their colours and where each one differs from the baseline.
+
+![Learn: the PLA card and Bambu Lab PLA types](docs/screenshots/learn-pla.png)
+
 ## Labels & NFC
 
 Print QR labels for your spools, or write an NTAG215 NFC sticker for each one.
