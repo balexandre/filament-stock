@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Filament Stock — mockup</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'media' }</script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+    .simple { font-size: 1.15rem; }
+    @media print {
+      body { background: #fff !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .card-print { width: 105mm; min-height: 148mm; box-shadow: none !important; border: 2px solid #000 !important; color: #000 !important; background: #fff !important; break-inside: avoid; }
+      .label-sheet { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen"
+      x-data="app()" :class="simple && 'simple'">
+
+  <!-- Mockup banner -->
+  <div class="no-print bg-amber-300 text-amber-950 text-sm text-center py-1 px-4">
+    🧪 Mockup — fake data, nothing is saved. Try the <b>Simple mode</b> switch and open a spool as if you scanned its label.
+  </div>
+
+  <!-- Header -->
+  <header class="no-print sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center gap-3">
+      <button @click="go('home')" class="flex items-center gap-2 font-bold text-lg focus:outline-none focus-visible:ring-4 ring-indigo-400 rounded-lg" aria-label="Home">
+        <span class="text-2xl" aria-hidden="true">🧵</span>
+        <span x-text="simple ? 'My Plastic' : 'Filament Stock'"></span>
+      </button>
+      <div class="ml-auto flex items-center gap-3">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <span class="text-sm font-medium hidden sm:inline">Simple mode</span>
+          <span class="sm:hidden text-xl" aria-hidden="true">🧒</span>
+          <button role="switch" :aria-checked="simple" aria-label="Simple mode" @click="simple=!simple"
+                  class="relative w-14 h-8 rounded-full transition focus:outline-none focus-visible:ring-4 ring-indigo-400"
+                  :class="simple ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'">
+            <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition" :class="simple && 'translate-x-6'"></span>
+          </button>
+        </label>
+        <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 grid place-items-center font-bold" :title="simple ? 'Kid account' : 'Bruno'" x-text="simple ? '🧒' : 'B'"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 pb-28 pt-4">
+
+    <!-- ===================== HOME ===================== -->
+    <section x-show="view==='home'" x-cloak class="space-y-6">
+
+      <!-- Low stock banner -->
+      <button x-show="lowSpools().length" @click="go('shop')"
+              class="w-full text-left flex items-center gap-4 p-4 rounded-2xl bg-red-50 dark:bg-red-950 border-2 border-red-300 dark:border-red-800 focus:outline-none focus-visible:ring-4 ring-red-400">
+        <span class="text-3xl" aria-hidden="true">⚠️</span>
+        <span class="flex-1">
+          <span class="block font-bold text-red-800 dark:text-red-200"
+                x-text="simple ? `${lowSpools().length} colours are almost empty!` : `${lowSpools().length} filaments below minimum`"></span>
+          <span class="block text-sm text-red-700 dark:text-red-300" x-text="simple ? 'Tell a grown-up 🙂' : 'Tap to see the shopping list'"></span>
+        </span>
+        <span aria-hidden="true" class="text-2xl">›</span>
+      </button>
+
+      <!-- Big actions -->
+      <div class="grid grid-cols-2 gap-3">
+        <button @click="openSpool(spools[0])" class="h-28 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg flex flex-col items-center justify-center gap-1 shadow focus:outline-none focus-visible:ring-4 ring-indigo-300">
+          <span class="text-4xl" aria-hidden="true">📷</span>
+          <span x-text="simple ? 'I printed something' : 'Scan & log usage'"></span>
+        </button>
+        <button @click="go('add')" class="h-28 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 font-bold text-lg flex flex-col items-center justify-center gap-1 focus:outline-none focus-visible:ring-4 ring-indigo-300">
+          <span class="text-4xl" aria-hidden="true">➕</span>
+          <span x-text="simple ? 'New roll arrived' : 'Add spool'"></span>
+        </button>
+      </div>
+
+      <!-- AMS map -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-lg" x-text="simple ? 'What\'s in the printer' : 'Bambu Lab X2D — loaded now'"></h2>
+          <span class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">Default printer</span>
+        </div>
+        <div class="grid grid-cols-5 gap-2">
+          <template x-for="slot in amsSlots" :key="slot.label">
+            <button @click="slot.spool && openSpool(slot.spool)" class="rounded-xl p-2 border-2 border-slate-200 dark:border-slate-700 text-center focus:outline-none focus-visible:ring-4 ring-indigo-300"
+                    :aria-label="slot.label + ': ' + (slot.spool ? slot.spool.name + ', ' + remaining(slot.spool) + ' grams left' : 'empty')">
+              <div class="mx-auto w-12 h-12 rounded-full border-4 border-white dark:border-slate-800 shadow-inner ring-1 ring-slate-300"
+                   :style="slot.spool ? `background:#${slot.spool.hex}` : 'background:repeating-linear-gradient(45deg,#ddd 0 6px,#f5f5f5 6px 12px)'"></div>
+              <div class="mt-1 text-[11px] font-semibold text-slate-500" x-text="slot.label"></div>
+              <div class="text-xs font-bold" x-text="slot.spool ? remaining(slot.spool)+' g' : 'empty'"></div>
+            </button>
+          </template>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">AMS 2 Pro · slots 1–4 &nbsp;|&nbsp; AMS HT · 1 slot</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter by material">
+        <template x-for="m in ['All','PLA','PETG','TPU','ABS','PLA-CF']">
+          <button role="tab" :aria-selected="filter===m" @click="filter=m"
+                  class="shrink-0 px-4 h-11 rounded-full font-semibold border-2 focus:outline-none focus-visible:ring-4 ring-indigo-300"
+                  :class="filter===m ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'"
+                  x-text="m"></button>
+        </template>
+      </div>
+
+      <!-- Spool list -->
+      <ul class="grid sm:grid-cols-2 gap-3">
+        <template x-for="s in filtered()" :key="s.code">
+          <li>
+            <button @click="openSpool(s)" class="w-full text-left bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm flex gap-4 items-center hover:shadow-md transition focus:outline-none focus-visible:ring-4 ring-indigo-300">
+              <div class="w-16 h-16 shrink-0 rounded-full ring-4 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="`background:#${s.hex}`">
+                <div class="w-5 h-5 rounded-full bg-white/80 dark:bg-slate-900/80"></div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold truncate" x-text="s.name"></span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-semibold" x-text="s.material"></span>
+                </div>
+                <div class="text-sm text-slate-500 truncate" x-show="!simple" x-text="s.brand + ' · ' + s.location"></div>
+                <div class="text-sm text-slate-500 truncate" x-show="simple" x-text="'📍 ' + s.location"></div>
+                <div class="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden" role="progressbar" :aria-valuenow="remaining(s)" aria-valuemin="0" :aria-valuemax="s.initial">
+                  <div class="h-full rounded-full" :class="barColor(s)" :style="`width:${pct(s)}%`"></div>
+                </div>
+                <div class="mt-1 flex justify-between text-sm">
+                  <span class="font-semibold" x-text="remaining(s) + ' g ' + (simple ? 'left' : 'remaining')"></span>
+                  <span class="font-semibold" :class="statusText(s).cls" x-text="statusText(s).label"></span>
+                </div>
+              </div>
+            </button>
+          </li>
+        </template>
+      </ul>
+    </section>
+
+    <!-- ===================== QUICK LOG (scanned spool) ===================== -->
+    <section x-show="view==='spool'" x-cloak class="max-w-md mx-auto space-y-5" x-effect="view==='spool' && $nextTick(()=>$refs.grams?.focus())">
+      <template x-if="current">
+        <div class="space-y-5">
+          <div class="rounded-3xl p-5 text-center shadow-sm bg-white dark:bg-slate-900">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-2" x-show="!simple">Opened from label · <span class="font-mono" x-text="current.code"></span></div>
+            <div class="mx-auto w-28 h-28 rounded-full ring-8 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="`background:#${current.hex}`">
+              <div class="w-8 h-8 rounded-full bg-white/80 dark:bg-slate-900/80"></div>
+            </div>
+            <h1 class="mt-3 text-2xl font-extrabold" x-text="current.name"></h1>
+            <p class="text-slate-500" x-text="current.brand + ' · ' + current.material + ' · 📍 ' + current.location"></p>
+            <p class="mt-3 text-4xl font-black" x-text="remaining(current) + ' g'"></p>
+            <p class="text-sm" :class="statusText(current).cls" x-text="simple ? 'plastic left on this roll' : statusText(current).label + ' · minimum ' + current.min + ' g'"></p>
+          </div>
+
+          <!-- mode tabs -->
+          <div class="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-200 dark:bg-slate-800" role="tablist">
+            <button role="tab" :aria-selected="logMode==='used'" @click="logMode='used'" class="h-12 rounded-xl font-bold" :class="logMode==='used' && 'bg-white dark:bg-slate-900 shadow'" x-text="simple ? '🖨️ I used some' : '🖨️ Used (g)'"></button>
+            <button role="tab" :aria-selected="logMode==='weigh'" @click="logMode='weigh'" class="h-12 rounded-xl font-bold" :class="logMode==='weigh' && 'bg-white dark:bg-slate-900 shadow'" x-text="simple ? '⚖️ I weighed it' : '⚖️ Weigh spool'"></button>
+          </div>
+
+          <div x-show="logMode==='used'" class="space-y-4">
+            <label for="grams" class="block text-xl font-bold text-center" x-text="simple ? 'How many grams did your print use?' : 'Grams used'"></label>
+            <p x-show="simple" class="text-center text-sm text-slate-500">💡 Bambu Handy / the printer screen shows it under “filament” when the print is done.</p>
+            <div class="flex items-center gap-2">
+              <button @click="grams=Math.max(0,(+grams||0)-1)" class="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-3xl font-bold" aria-label="One gram less">−</button>
+              <input id="grams" x-ref="grams" type="number" inputmode="decimal" min="0" x-model="grams" placeholder="0"
+                     class="flex-1 h-16 text-center text-4xl font-black rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+              <button @click="grams=(+grams||0)+1" class="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-3xl font-bold" aria-label="One gram more">+</button>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <template x-for="q in [5,10,25,50,100]">
+                <button @click="grams=(+grams||0)+q" class="h-12 px-5 rounded-full bg-indigo-50 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200 font-bold" x-text="'+' + q + ' g'"></button>
+              </template>
+            </div>
+            <p x-show="+grams > remaining(current)" class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200 text-sm"
+               x-text="`That's more than the spool has left (${remaining(current)} g). I'll use ${remaining(current)} g and mark it empty.`"></p>
+            <button @click="logUsage()" :disabled="!(+grams>0)"
+                    class="w-full h-16 rounded-2xl bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xl font-extrabold shadow focus:outline-none focus-visible:ring-4 ring-indigo-300"
+                    x-text="+grams>0 ? (simple ? `Take away ${grams} g ✅` : `Log ${grams} g`) : (simple ? 'Type a number first' : 'Enter grams')"></button>
+          </div>
+
+          <div x-show="logMode==='weigh'" class="space-y-4">
+            <label for="scale" class="block text-xl font-bold text-center" x-text="simple ? 'Put the roll on the scale. What does it say?' : 'Scale reading (spool + filament)'"></label>
+            <input id="scale" type="number" inputmode="decimal" x-model="scale" placeholder="e.g. 712"
+                   class="w-full h-16 text-center text-4xl font-black rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+            <p class="text-center text-slate-600 dark:text-slate-300" x-show="+scale>0">
+              <span x-text="scale"></span> g − empty spool <span x-text="current.spoolWeight"></span> g =
+              <b class="text-xl" x-text="Math.max(0, scale - current.spoolWeight) + ' g left'"></b>
+            </p>
+            <p class="text-xs text-center text-slate-500" x-show="!simple">Empty-spool weight comes from SpoolmanDB (<code>spool_weight</code>); editable per spool.</p>
+            <button @click="logWeigh()" :disabled="!(+scale>0)" class="w-full h-16 rounded-2xl bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xl font-extrabold shadow">Save weight</button>
+          </div>
+
+          <!-- History (adults) -->
+          <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm">
+            <h2 class="font-bold mb-2">History</h2>
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+              <template x-for="h in current.history.slice().reverse()">
+                <li class="py-2 flex justify-between"><span x-text="h.when + ' · ' + h.who + (h.note ? ' · ' + h.note : '')"></span><b x-text="'−' + h.g + ' g'"></b></li>
+              </template>
+            </ul>
+            <div class="mt-3 flex gap-2 flex-wrap">
+              <button class="h-11 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-semibold">✏️ Edit</button>
+              <button class="h-11 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-semibold">📍 Move</button>
+              <button @click="labelSel=[current.code]; go('labels')" class="h-11 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-semibold">🏷️ Label</button>
+              <button @click="go('card'); card=materials.find(m=>current.material.startsWith(m.key))||materials[0]" class="h-11 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-semibold">📘 How to print</button>
+            </div>
+          </div>
+          <button x-show="simple" @click="go('card'); card=materials.find(m=>current.material.startsWith(m.key))||materials[0]" class="w-full h-14 rounded-2xl border-2 border-slate-200 dark:border-slate-700 font-bold">📘 How do I print with this?</button>
+        </div>
+      </template>
+    </section>
+
+    <!-- ===================== ADD SPOOL ===================== -->
+    <section x-show="view==='add'" x-cloak class="max-w-xl mx-auto space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'A new roll arrived! 🎉' : 'Add spool'"></h1>
+      <div class="flex gap-2 text-sm">
+        <span class="px-3 py-1 rounded-full font-bold" :class="addStep===1?'bg-indigo-600 text-white':'bg-slate-200 dark:bg-slate-800'">1 · Find it</span>
+        <span class="px-3 py-1 rounded-full font-bold" :class="addStep===2?'bg-indigo-600 text-white':'bg-slate-200 dark:bg-slate-800'">2 · Where &amp; how much</span>
+        <span class="px-3 py-1 rounded-full font-bold" :class="addStep===3?'bg-indigo-600 text-white':'bg-slate-200 dark:bg-slate-800'">3 · Label</span>
+      </div>
+
+      <div x-show="addStep===1" class="space-y-3">
+        <label for="q" class="font-semibold">Search brand, colour or material</label>
+        <input id="q" x-model="q" placeholder="e.g. bambu pla jade" class="w-full h-14 px-4 text-lg rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+        <p class="text-xs text-slate-500">Searching 9,745 filaments from SpoolmanDB (downloaded once, cached on this device).</p>
+        <ul class="space-y-2">
+          <template x-for="f in catalogResults()" :key="f.id">
+            <li><button @click="pick=f; addStep=2" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus:outline-none focus-visible:ring-4">
+              <span class="w-10 h-10 rounded-full ring-2 ring-slate-200" :style="`background:#${f.hex}`"></span>
+              <span class="flex-1"><b x-text="f.name"></b><br><span class="text-sm text-slate-500" x-text="f.brand + ' · ' + f.material + ' · ' + f.weight + ' g'"></span></span>
+              <span aria-hidden="true">›</span>
+            </button></li>
+          </template>
+        </ul>
+      </div>
+
+      <div x-show="addStep===2" class="space-y-4" x-cloak>
+        <template x-if="pick">
+          <div class="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
+            <span class="w-12 h-12 rounded-full" :style="`background:#${pick.hex}`"></span>
+            <div><b x-text="pick.name"></b><br><span class="text-sm text-slate-500" x-text="pick.brand + ' · ' + pick.material"></span></div>
+          </div>
+        </template>
+        <fieldset>
+          <legend class="font-semibold mb-2" x-text="simple ? 'Where will it live?' : 'Location'"></legend>
+          <div class="grid grid-cols-3 gap-2">
+            <template x-for="l in ['AMS 1','AMS 2','AMS 3','AMS 4','AMS HT','Shelf','Dry box','Ender 3']">
+              <button @click="newLoc=l" class="h-12 rounded-xl border-2 font-semibold" :class="newLoc===l ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'" x-text="l"></button>
+            </template>
+          </div>
+        </fieldset>
+        <div class="grid grid-cols-2 gap-3" x-show="!simple">
+          <label class="block"><span class="text-sm font-semibold">Filament weight (g)</span>
+            <input type="number" :value="pick?.weight" class="mt-1 w-full h-12 px-3 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+          <label class="block"><span class="text-sm font-semibold">Warn me below (g)</span>
+            <input type="number" value="200" class="mt-1 w-full h-12 px-3 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+        </div>
+        <button @click="addStep=3" class="w-full h-14 rounded-2xl bg-indigo-600 text-white text-lg font-bold">Next</button>
+      </div>
+
+      <div x-show="addStep===3" class="space-y-4 text-center" x-cloak>
+        <p class="text-lg">Spool code <b class="font-mono text-2xl">R8M3</b></p>
+        <div class="inline-block p-3 bg-white rounded-xl" x-html="qr('R8M3', 5)"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="h-14 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold">🖨️ Print label</button>
+          <button @click="nfcInfo=true" class="h-14 rounded-2xl border-2 border-slate-300 dark:border-slate-700 font-bold">📶 Write NFC tag</button>
+        </div>
+        <button @click="addStep=1; go('home'); showToast('Spool added 🎉')" class="w-full h-14 rounded-2xl bg-indigo-600 text-white text-lg font-bold">Done</button>
+      </div>
+    </section>
+
+    <!-- ===================== LABELS ===================== -->
+    <section x-show="view==='labels'" x-cloak class="space-y-4">
+      <div class="no-print flex flex-wrap items-end gap-3">
+        <div class="flex-1">
+          <h1 class="text-2xl font-extrabold">Labels &amp; NFC</h1>
+          <p class="text-slate-500 text-sm">Each label opens <code class="font-mono">…/filament-stock/#/s/CODE</code> straight to “how much did you use?”.</p>
+        </div>
+        <button @click="window.print()" class="h-12 px-5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold">🖨️ Print selected</button>
+        <button @click="nfcInfo=true" class="h-12 px-5 rounded-xl border-2 border-slate-300 dark:border-slate-700 font-bold">📶 Write NFC</button>
+      </div>
+      <div class="label-sheet grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <template x-for="s in spools" :key="s.code">
+          <label class="relative bg-white text-slate-900 rounded-2xl p-3 shadow-sm border-2 cursor-pointer" :class="labelSel.includes(s.code) ? 'border-indigo-500' : 'border-transparent no-print'">
+            <input type="checkbox" class="no-print absolute top-3 right-3 w-5 h-5" :value="s.code" x-model="labelSel" :aria-label="'Select label for ' + s.name">
+            <div class="flex gap-3 items-center">
+              <div x-html="qr(s.code, 3)"></div>
+              <div class="min-w-0">
+                <div class="w-6 h-6 rounded-full border border-slate-300" :style="`background:#${s.hex}`"></div>
+                <div class="font-bold text-sm leading-tight mt-1" x-text="s.name"></div>
+                <div class="text-xs" x-text="s.material"></div>
+                <div class="font-mono font-black text-lg" x-text="s.code"></div>
+              </div>
+            </div>
+          </label>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===================== SHOPPING LIST ===================== -->
+    <section x-show="view==='shop'" x-cloak class="max-w-xl mx-auto space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'Almost empty 😬' : 'To order'"></h1>
+      <ul class="space-y-3">
+        <template x-for="s in lowSpools()" :key="s.code">
+          <li class="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
+            <span class="w-12 h-12 rounded-full" :style="`background:#${s.hex}`"></span>
+            <div class="flex-1"><b x-text="s.name"></b><br><span class="text-sm text-slate-500" x-text="s.brand + ' · ' + s.material"></span></div>
+            <div class="text-right"><b class="text-red-700 dark:text-red-300" x-text="remaining(s) + ' g'"></b><br><span class="text-xs text-slate-500" x-text="'min ' + s.min + ' g'"></span></div>
+          </li>
+        </template>
+      </ul>
+      <button x-show="!simple" class="w-full h-12 rounded-xl border-2 border-slate-300 dark:border-slate-700 font-bold">📋 Copy list</button>
+    </section>
+
+    <!-- ===================== LEARN ===================== -->
+    <section x-show="view==='learn'" x-cloak class="space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'Learn about plastics 🧪' : 'Materials'"></h1>
+      <p class="text-slate-500 text-sm">Settings shown for <b>Bambu Lab X2D</b>, 0.4 mm nozzle. Starting points — tweak in Bambu Studio.</p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <template x-for="m in materials" :key="m.key">
+          <button @click="card=m; go('card')" class="text-left p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition focus:outline-none focus-visible:ring-4 ring-indigo-300">
+            <div class="flex items-center gap-3"><span class="text-4xl" aria-hidden="true" x-text="m.emoji"></span>
+              <div><div class="text-xl font-extrabold" x-text="m.key"></div>
+                <div class="text-sm" :aria-label="'Difficulty ' + m.level + ' of 5'"><span x-text="'●'.repeat(m.level)" class="text-indigo-600"></span><span x-text="'○'.repeat(5-m.level)" class="text-slate-300"></span> <span class="text-slate-500" x-text="['','Super easy','Easy','Medium','Tricky','Expert'][m.level]"></span></div></div></div>
+            <p class="mt-3 text-slate-600 dark:text-slate-300" x-text="m.kid"></p>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===================== MATERIAL CARD ===================== -->
+    <section x-show="view==='card'" x-cloak class="space-y-4">
+      <div class="no-print flex gap-2">
+        <button @click="go('learn')" class="h-11 px-4 rounded-xl border-2 border-slate-300 dark:border-slate-700 font-semibold">← All materials</button>
+        <button @click="window.print()" class="ml-auto h-11 px-4 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold">🖨️ Print card (A6)</button>
+      </div>
+      <template x-if="card">
+        <div class="grid lg:grid-cols-[1fr_auto] gap-6 items-start">
+          <article class="card-print mx-auto w-full max-w-[420px] bg-white text-slate-900 rounded-3xl shadow-lg border-4 overflow-hidden" :style="`border-color:${card.color}`">
+            <header class="p-4 text-white flex items-center gap-3" :style="`background:${card.color}`">
+              <span class="text-4xl" x-text="card.emoji"></span>
+              <div class="flex-1"><div class="text-3xl font-black" x-text="card.key"></div><div class="text-sm opacity-90">Bambu Lab X2D · 0.4 mm</div></div>
+              <div class="bg-white p-1 rounded" x-html="qr('learn/'+card.key, 2)"></div>
+            </header>
+            <div class="p-4 space-y-3">
+              <p class="font-semibold" x-text="card.kid"></p>
+              <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-500">🔥 Nozzle</div><div class="text-2xl font-black" x-text="card.nozzle"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-500">🛏️ Bed</div><div class="text-2xl font-black" x-text="card.bed"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-500">💨 Fan</div><div class="text-lg font-black" x-text="card.fan"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-500">🚪 Door</div><div class="text-lg font-black" x-text="card.door"></div></div>
+              </div>
+              <table class="w-full text-sm">
+                <tbody class="divide-y divide-slate-200">
+                  <tr><th class="text-left py-1 font-semibold">Plate</th><td class="text-right" x-text="card.plate"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Max flow</th><td class="text-right" x-text="card.flow"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Walls</th><td class="text-right" x-text="card.walls"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Top / bottom</th><td class="text-right" x-text="card.tb"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Infill</th><td class="text-right" x-text="card.infill"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Dry before use</th><td class="text-right" x-text="card.dry"></td></tr>
+                  <tr><th class="text-left py-1 font-semibold">Feed from</th><td class="text-right" x-text="card.feed"></td></tr>
+                </tbody>
+              </table>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="rounded-xl bg-emerald-50 p-2"><b>👍 Good for</b><p x-text="card.good"></p></div>
+                <div class="rounded-xl bg-red-50 p-2"><b>👎 Watch out</b><p x-text="card.bad"></p></div>
+              </div>
+              <p class="text-[10px] text-slate-500">Starting values from Bambu Studio generic profiles. Always check the spool's label.</p>
+            </div>
+          </article>
+          <aside class="no-print max-w-sm space-y-3 text-sm text-slate-600 dark:text-slate-300">
+            <h2 class="font-bold text-base text-slate-900 dark:text-white">Why this card looks like this</h2>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>A6 size → 4 per A4 sheet, fits a laminating pouch.</li>
+              <li>The 4 numbers you set most are giant; the rest is a table.</li>
+              <li>QR in the corner opens this page on your phone.</li>
+              <li>Print stylesheet drops shadows/background for ink and contrast.</li>
+            </ul>
+          </aside>
+        </div>
+      </template>
+    </section>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="no-print fixed bottom-0 inset-x-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800" aria-label="Main">
+    <div class="max-w-5xl mx-auto grid grid-cols-4">
+      <template x-for="n in nav()" :key="n.v">
+        <button @click="go(n.v)" class="h-16 flex flex-col items-center justify-center gap-0.5 font-semibold text-xs focus:outline-none focus-visible:ring-4 ring-inset ring-indigo-300"
+                :class="view===n.v || (n.v==='learn' && view==='card') ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'" :aria-current="view===n.v ? 'page' : null">
+          <span class="text-2xl" aria-hidden="true" x-text="n.i"></span><span x-text="n.t"></span>
+        </button>
+      </template>
+    </div>
+  </nav>
+
+  <!-- Toast with undo -->
+  <div x-show="toast" x-cloak x-transition role="status" aria-live="polite"
+       class="no-print fixed bottom-20 inset-x-4 sm:left-auto sm:right-6 sm:w-96 z-30 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl p-4 shadow-xl flex items-center gap-3">
+    <span class="flex-1 font-semibold" x-text="toast"></span>
+    <button x-show="undo" @click="undo(); undo=null; toast=''" class="h-11 px-4 rounded-xl bg-white/15 dark:bg-slate-900/10 font-bold">Undo</button>
+  </div>
+
+  <!-- NFC dialog -->
+  <div x-show="nfcInfo" x-cloak class="no-print fixed inset-0 z-40 bg-black/50 grid place-items-center p-4" @keydown.escape.window="nfcInfo=false" @click.self="nfcInfo=false">
+    <div role="dialog" aria-modal="true" aria-labelledby="nfc-title" class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-3 text-center">
+      <div class="text-6xl animate-pulse" aria-hidden="true">📶</div>
+      <h2 id="nfc-title" class="text-xl font-extrabold">Hold the sticker to the back of your phone</h2>
+      <p class="text-sm text-slate-600 dark:text-slate-300">Android + Chrome writes it directly (NTAG215). On iPhone, copy the link and write it with the <b>NFC Tools</b> app — reading works natively.</p>
+      <code class="block text-xs bg-slate-100 dark:bg-slate-800 rounded-lg p-2 break-all">https://balexandre.github.io/filament-stock/#/s/R8M3</code>
+      <button @click="nfcInfo=false; showToast('NFC tag written ✅')" class="w-full h-12 rounded-xl bg-indigo-600 text-white font-bold">Simulate success</button>
+    </div>
+  </div>
+
+<script>
+function app() {
+  const spools = [
+    { code:'K7Q2', name:'Jade White',     brand:'Bambu Lab', material:'PLA',    hex:'F2F5F0', initial:1000, spoolWeight:250, min:200, location:'AMS 1',  used:[{g:120},{g:55},{g:38}] },
+    { code:'P3XD', name:'Black',          brand:'Bambu Lab', material:'PLA',    hex:'111111', initial:1000, spoolWeight:250, min:250, location:'AMS 2',  used:[{g:640},{g:180}] },
+    { code:'Z9LA', name:'Bambu Green',    brand:'Bambu Lab', material:'PLA',    hex:'00AE42', initial:1000, spoolWeight:250, min:200, location:'AMS 3',  used:[{g:300}] },
+    { code:'M4TR', name:'Cobalt Blue',    brand:'Bambu Lab', material:'PETG',   hex:'1F4FA8', initial:1000, spoolWeight:250, min:200, location:'AMS 4',  used:[{g:710},{g:150}] },
+    { code:'H8CF', name:'Black Carbon',   brand:'Bambu Lab', material:'PLA-CF', hex:'2B2B2B', initial:1000, spoolWeight:250, min:150, location:'AMS HT', used:[{g:90}] },
+    { code:'T1PU', name:'Neon Orange',    brand:'Bambu Lab', material:'TPU',    hex:'FF6A13', initial:1000, spoolWeight:250, min:150, location:'Dry box', used:[{g:40}] },
+    { code:'E3NE', name:'Galaxy Purple',  brand:'Eryone',    material:'PLA',    hex:'5B2A86', initial:1000, spoolWeight:200, min:200, location:'Shelf',  used:[] },
+    { code:'A5BS', name:'Fire Red',       brand:'Polymaker', material:'ABS',    hex:'D3212C', initial:1000, spoolWeight:140, min:200, location:'Shelf',  used:[{g:820}] },
+  ].map(s => ({ ...s, history: s.used.map((u,i)=>({ g:u.g, when:['2 Nov','9 Nov','15 Nov'][i%3], who:i%2?'Kid':'Bruno', note:i===0?'Benchy':'' })) }));
+
+  const catalog = [
+    { id:'bambulab_pla_jadewhite', brand:'Bambu Lab', name:'PLA Basic Jade White', material:'PLA', hex:'F2F5F0', weight:1000 },
+    { id:'bambulab_pla_matte_ivory', brand:'Bambu Lab', name:'PLA Matte Ivory White', material:'PLA', hex:'FFFFF0', weight:1000 },
+    { id:'bambulab_petg_hf_black', brand:'Bambu Lab', name:'PETG HF Black', material:'PETG', hex:'000000', weight:1000 },
+    { id:'bambulab_tpu95a_blue', brand:'Bambu Lab', name:'TPU 95A HF Blue', material:'TPU', hex:'0A65C7', weight:1000 },
+    { id:'polymaker_pla_pro_teal', brand:'Polymaker', name:'PolyLite PLA Pro Teal', material:'PLA', hex:'00807F', weight:1000 },
+    { id:'esun_petg_clear', brand:'eSUN', name:'PETG Solid Clear', material:'PETG', hex:'E6F2F5', weight:1000 },
+    { id:'sunlu_pla_silk_gold', brand:'SUNLU', name:'Silk PLA+ Gold', material:'PLA+', hex:'D4AF37', weight:1000 },
+  ];
+
+  const materials = [
+    { key:'PLA', emoji:'🌽', level:1, color:'#16a34a', kid:'The easy one. Made from plants — perfect for toys and models, but it goes soft in a hot car.',
+      nozzle:'220 °C', bed:'55 °C', fan:'100 %', door:'Open', plate:'Textured PEI / Cool Plate SuperTack', flow:'21 mm³/s', walls:'2 (3 for strong parts)', tb:'5 / 3', infill:'15 % Grid / Gyroid', dry:'50 °C · 8 h', feed:'AMS 2 Pro', good:'Models, toys, prototypes, cosplay', bad:'Heat above ~55 °C, outdoor sun' },
+    { key:'PETG', emoji:'🥤', level:2, color:'#2563eb', kid:'Like a water bottle: tougher and bendier than PLA, a bit stringy.',
+      nozzle:'250 °C', bed:'70 °C', fan:'40 %', door:'Open', plate:'Textured PEI (glue on smooth)', flow:'16 mm³/s', walls:'3', tb:'5 / 4', infill:'20 % Gyroid', dry:'65 °C · 8 h', feed:'AMS 2 Pro', good:'Functional parts, outdoor, clips', bad:'Strings, sticks too hard to smooth PEI' },
+    { key:'TPU', emoji:'🏀', level:3, color:'#ea580c', kid:'Rubbery and squishy — phone cases, tyres and bouncy things. Print it slowly!',
+      nozzle:'230 °C', bed:'35 °C', fan:'100 %', door:'Open', plate:'Textured PEI', flow:'3.6 mm³/s', walls:'3', tb:'4 / 4', infill:'15 % Gyroid', dry:'70 °C · 8 h', feed:'External spool (check AMS HT support for your TPU hardness)', good:'Grips, cases, gaskets, wheels', bad:'Slow, absorbs water, jams if pushed fast' },
+    { key:'ABS', emoji:'🧱', level:4, color:'#dc2626', kid:'The LEGO brick plastic. Strong and heat-proof, but it smells — needs the door closed.',
+      nozzle:'260 °C', bed:'90 °C', fan:'20 %', door:'Closed', plate:'Textured PEI / Engineering', flow:'20 mm³/s', walls:'3', tb:'5 / 4', infill:'20 % Grid', dry:'80 °C · 8 h', feed:'AMS HT', good:'Car parts, hot places, sanding', bad:'Warping, fumes — ventilate the room' },
+    { key:'PLA-CF', emoji:'🖤', level:3, color:'#334155', kid:'PLA with tiny carbon threads — stiff and matte. Needs a special hard nozzle.',
+      nozzle:'220 °C', bed:'55 °C', fan:'100 %', door:'Open', plate:'Textured PEI', flow:'15 mm³/s', walls:'3', tb:'5 / 3', infill:'20 % Gyroid', dry:'55 °C · 8 h', feed:'AMS HT (hardened nozzle!)', good:'Stiff brackets, drone parts, nice matte look', bad:'Brittle, wears brass nozzles' },
+    { key:'ASA', emoji:'☀️', level:4, color:'#9333ea', kid:'ABS’s cousin that doesn’t fade in the sun. For things that live outside.',
+      nozzle:'260 °C', bed:'95 °C', fan:'20 %', door:'Closed', plate:'Textured PEI / Engineering', flow:'18 mm³/s', walls:'3–4', tb:'5 / 4', infill:'20 % Grid', dry:'80 °C · 8 h', feed:'AMS HT', good:'Outdoor, garden, car exterior', bad:'Warping, fumes' },
+  ];
+
+  return {
+    view:'home', simple:false, filter:'All', spools, catalog, materials,
+    current:null, grams:'', scale:'', logMode:'used', toast:'', undo:null, toastTimer:null,
+    addStep:1, q:'', pick:null, newLoc:'Shelf', labelSel:['K7Q2','P3XD','Z9LA','M4TR','H8CF','T1PU'], nfcInfo:false, card:null,
+
+    get amsSlots() { return ['AMS 1','AMS 2','AMS 3','AMS 4','AMS HT'].map(l => ({ label:l.replace('AMS ',''), spool:this.spools.find(s=>s.location===l) })) },
+    nav() { return this.simple
+      ? [{v:'home',i:'🏠',t:'Home'},{v:'spool',i:'🖨️',t:'I printed'},{v:'learn',i:'🧪',t:'Learn'},{v:'shop',i:'🛒',t:'Almost empty'}]
+      : [{v:'home',i:'🏠',t:'Stock'},{v:'labels',i:'🏷️',t:'Labels'},{v:'learn',i:'📘',t:'Learn'},{v:'shop',i:'🛒',t:'To order'}] },
+    go(v) { if (v==='spool' && !this.current) this.current=this.spools[0]; this.view=v; window.scrollTo({top:0}) },
+    openSpool(s) { this.current=s; this.grams=''; this.scale=''; this.logMode='used'; this.go('spool') },
+    remaining(s) { return Math.max(0, s.initial - s.history.reduce((a,h)=>a+h.g,0)) },
+    pct(s) { return Math.round(this.remaining(s)/s.initial*100) },
+    barColor(s) { const r=this.remaining(s); return r<=s.min ? 'bg-red-600' : r<=2*s.min ? 'bg-amber-500' : 'bg-emerald-500' },
+    statusText(s) { const r=this.remaining(s);
+      if (r<=s.min) return { label: this.simple?'🔴 Almost empty':'🔴 Order now', cls:'text-red-700 dark:text-red-300' };
+      if (r<=2*s.min) return { label: this.simple?'🟡 Getting low':'🟡 Low', cls:'text-amber-700 dark:text-amber-300' };
+      return { label:'🟢 OK', cls:'text-emerald-700 dark:text-emerald-300' } },
+    filtered() { return this.spools.filter(s => this.filter==='All' || s.material===this.filter) },
+    lowSpools() { return this.spools.filter(s => this.remaining(s) <= s.min) },
+    catalogResults() { const t=this.q.toLowerCase().split(/\s+/).filter(Boolean);
+      return this.catalog.filter(f => t.every(w => (f.brand+' '+f.name+' '+f.material).toLowerCase().includes(w))) },
+    logUsage() { const s=this.current; const g=Math.min(+this.grams, this.remaining(s)); if(!(g>0)) return;
+      const entry={ g, when:'Just now', who:this.simple?'Kid':'Bruno', note:'' }; s.history.push(entry); this.grams='';
+      this.showToast(this.simple ? `Done! ${this.remaining(s)} g left 👍` : `Logged ${g} g · ${this.remaining(s)} g left`, () => s.history.splice(s.history.indexOf(entry),1)) },
+    logWeigh() { const s=this.current; const now=Math.max(0, this.scale - s.spoolWeight); const g=this.remaining(s)-now;
+      const entry={ g, when:'Just now', who:'Bruno', note:'weighed' }; s.history.push(entry); this.scale='';
+      this.showToast(`Updated to ${now} g`, () => s.history.splice(s.history.indexOf(entry),1)) },
+    showToast(msg, undo=null) { this.toast=msg; this.undo=undo; clearTimeout(this.toastTimer); this.toastTimer=setTimeout(()=>{this.toast='';this.undo=null}, 10000) },
+    qr(text, cell) { try { const q=qrcode(0,'M'); q.addData('https://balexandre.github.io/filament-stock/#/'+(text.includes('/')?text:'s/'+text)); q.make(); return q.createSvgTag({cellSize:cell, margin:0}) } catch(e) { return '' } },
+  }
+}
+</script>
+</body>
+</html>

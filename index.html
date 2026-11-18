@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Filament Stock</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/materials.js"></script>
+  <script src="js/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen antialiased"
+      x-data="app" x-effect="document.documentElement.classList.toggle('simple', simple)">
+
+<noscript><p class="p-6 text-center">This app needs JavaScript.</p></noscript>
+
+<!-- ============ NOT CONFIGURED ============ -->
+<div x-show="!configured && !isPublic" x-cloak class="max-w-lg mx-auto p-6 mt-10 bg-white dark:bg-slate-900 rounded-3xl shadow space-y-3">
+  <h1 class="text-2xl font-extrabold flex items-center gap-2"><img src="favicon.svg" alt="" class="w-8 h-8"> Almost there</h1>
+  <p>Set your Supabase project URL and anon key in <code class="px-1 bg-slate-100 dark:bg-slate-800 rounded">js/config.js</code>, then reload.</p>
+  <p class="text-sm text-slate-500">The Learn section works without it:</p>
+  <a href="#/learn" class="inline-block h-12 px-5 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold">📘 Open Learn</a>
+</div>
+
+<!-- ============ BOOT ============ -->
+<div x-show="configured && (booting || (session && !me && !isPublic))" class="min-h-screen grid place-items-center" role="status" aria-live="polite">
+  <div class="text-center"><img src="favicon.svg" alt="" class="w-16 h-16 mx-auto animate-bounce"><p class="mt-2 text-slate-500">Loading…</p></div>
+</div>
+
+<!-- ============ AUTH ============ -->
+<div x-show="showAuth || auth.mode === 'newpass'" x-cloak class="min-h-screen grid place-items-center p-4">
+  <button type="button" @click="cycleTheme()" class="theme-btn focus-ring fixed top-3 right-4"
+          :aria-label="`Theme: ${themeLabel}. Switch to ${nextThemeLabel}`" :title="`Theme: ${themeLabel} (click for ${nextThemeLabel})`">
+    <svg x-show="theme==='system'" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+    <svg x-show="theme==='light'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg x-show="theme==='dark'" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+  </button>
+  <form @submit.prevent="doAuth()" class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-lg p-6 space-y-4">
+    <div class="text-center">
+      <img src="favicon.svg" alt="" class="w-16 h-16 mx-auto">
+      <h1 class="text-2xl font-extrabold mt-1">Filament Stock</h1>
+      <p class="text-slate-500 text-sm" x-text="{login:'Welcome back!', signup:'Create your account', forgot:'Reset your password', newpass:'Choose a new password', check:'Check your email'}[auth.mode]"></p>
+    </div>
+
+    <template x-if="auth.mode === 'check'">
+      <div class="text-center space-y-3">
+        <div class="text-5xl" aria-hidden="true">📬</div>
+        <p>We sent a confirmation link to <b x-text="auth.msg"></b>. Click it, then come back and log in.</p>
+        <button type="button" @click="auth.mode='login'; auth.msg=''" class="w-full h-12 rounded-xl bg-indigo-600 text-white font-bold">Back to login</button>
+      </div>
+    </template>
+
+    <template x-if="auth.mode !== 'check'">
+      <div class="space-y-3">
+        <label x-show="auth.mode==='signup'" class="block"><span class="text-sm font-semibold">Your name</span>
+          <input x-model="auth.name" autocomplete="nickname" :required="auth.mode==='signup'" class="field mt-1"></label>
+        <label x-show="auth.mode!=='newpass'" class="block"><span class="text-sm font-semibold">Email</span>
+          <input x-model="auth.email" type="email" autocomplete="email" :required="auth.mode!=='newpass'" class="field mt-1"></label>
+        <label x-show="auth.mode!=='forgot'" class="block"><span class="text-sm font-semibold" x-text="auth.mode==='newpass' ? 'New password' : 'Password'"></span>
+          <input x-model="auth.password" type="password" minlength="6" :autocomplete="auth.mode==='login' ? 'current-password' : 'new-password'" :required="auth.mode!=='forgot'" class="field mt-1"></label>
+        <label x-show="auth.mode==='signup'" class="block"><span class="text-sm font-semibold">Family invite code <span class="font-normal text-slate-500">(optional)</span></span>
+          <input x-model="auth.invite" autocapitalize="characters" placeholder="e.g. 7F3A9C21" class="field mt-1 font-mono uppercase">
+          <span class="text-xs text-slate-500">Joining someone’s workshop? Ask them for the code in Settings.</span></label>
+
+        <p x-show="auth.err" x-text="auth.err" role="alert" class="p-3 rounded-xl bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 text-sm"></p>
+        <p x-show="auth.msg && auth.mode==='forgot'" x-text="auth.msg" class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-sm"></p>
+
+        <button type="submit" :disabled="auth.busy" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-extrabold"
+                x-text="auth.busy ? '…' : {login:'Log in', signup:'Create account', forgot:'Send reset link', newpass:'Save password'}[auth.mode]"></button>
+
+        <div class="flex justify-between text-sm" x-show="auth.mode!=='newpass'">
+          <button type="button" class="link" x-show="auth.mode!=='login'" @click="auth.mode='login'; auth.err=''">Log in</button>
+          <button type="button" class="link" x-show="auth.mode==='login'" @click="auth.mode='signup'; auth.err=''">Create account</button>
+          <button type="button" class="link" x-show="auth.mode!=='forgot'" @click="auth.mode='forgot'; auth.err=''; auth.msg=''">Forgot password?</button>
+        </div>
+        <a href="#/learn" class="block text-center text-sm link">📘 Just browsing? Open Learn</a>
+      </div>
+    </template>
+  </form>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div x-show="canShow && auth.mode !== 'newpass'" x-cloak>
+  <header class="no-print sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center gap-3">
+      <a href="#/" class="flex items-center gap-2 font-bold text-lg rounded-lg focus-ring" aria-label="Home">
+        <img src="favicon.svg" alt="" class="w-8 h-8">
+        <span x-text="simple ? 'My Plastic' : 'Filament Stock'"></span>
+      </a>
+      <div class="ml-auto flex items-center gap-3">
+        <template x-if="ready && adult">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium hidden sm:inline" id="simple-label">Simple mode</span>
+            <button role="switch" :aria-checked="simplePref" aria-labelledby="simple-label" aria-label="Simple mode" @click="toggleSimple()"
+                    class="relative w-14 h-8 rounded-full transition focus-ring" :class="simplePref ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'">
+              <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition" :class="simplePref && 'translate-x-6'"></span>
+            </button>
+          </div>
+        </template>
+        <a x-show="ready" href="#/settings" class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 grid place-items-center font-bold focus-ring"
+           :aria-label="'Settings for ' + (me?.display_name || '')" x-text="me?.is_kid ? '🧒' : (me?.display_name || '?').slice(0,1).toUpperCase()"></a>
+        <a x-show="!ready && configured" href="#/" class="h-10 px-4 leading-10 rounded-xl bg-indigo-600 text-white font-semibold">Log in</a>
+        <button type="button" @click="cycleTheme()" class="theme-btn focus-ring"
+                :aria-label="`Theme: ${themeLabel}. Switch to ${nextThemeLabel}`" :title="`Theme: ${themeLabel} (click for ${nextThemeLabel})`">
+          <svg x-show="theme==='system'" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          <svg x-show="theme==='light'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg x-show="theme==='dark'" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 pb-28 pt-4">
+
+    <!-- ===================== HOME ===================== -->
+    <section x-show="route==='home'" class="space-y-6">
+      <a x-show="shop.length" href="#/shop"
+         class="flex items-center gap-4 p-4 rounded-2xl bg-red-50 dark:bg-red-950 border-2 border-red-300 dark:border-red-800 focus-ring">
+        <span class="text-3xl" aria-hidden="true">⚠️</span>
+        <span class="flex-1">
+          <span class="block font-bold text-red-800 dark:text-red-200"
+                x-text="simple ? (shop.length===1 ? '1 colour is almost empty!' : `${shop.length} colours are almost empty!`) : `${shop.length} filament${shop.length===1?'':'s'} at or below minimum`"></span>
+          <span class="block text-sm text-red-700 dark:text-red-300" x-text="simple ? 'Tell a grown-up 🙂' : 'Tap to see the shopping list'"></span>
+        </span>
+        <span aria-hidden="true" class="text-2xl">›</span>
+      </a>
+
+      <button x-show="dryDue.length" type="button" @click="$refs.dry.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+              class="w-full text-left flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-800 focus-ring">
+        <span class="text-3xl" aria-hidden="true">💧</span>
+        <span class="flex-1">
+          <span class="block font-bold text-amber-900 dark:text-amber-200"
+                x-text="simple ? `The ${dryDue[0]?.name} beads are tired` + (dryDue.length > 1 ? ' (and more)' : '') : `Desiccant due: ${dryDue.map(d => d.name).join(', ')}`"></span>
+          <span class="block text-sm text-amber-800 dark:text-amber-300" x-text="simple ? 'Swap them with a grown-up 🙂' : 'Tap to see dry storage'"></span>
+        </span>
+        <span aria-hidden="true" class="text-2xl">›</span>
+      </button>
+
+      <div class="grid grid-cols-2 gap-3">
+        <a href="#/pick" class="h-28 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg flex flex-col items-center justify-center gap-1 shadow focus-ring text-center px-2">
+          <span class="text-4xl" aria-hidden="true">🖨️</span>
+          <span x-text="simple ? 'I printed something' : 'Log usage'"></span>
+        </a>
+        <a href="#/add" class="h-28 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 font-bold text-lg flex flex-col items-center justify-center gap-1 focus-ring text-center px-2">
+          <span class="text-4xl" aria-hidden="true">➕</span>
+          <span x-text="simple ? 'New roll arrived' : 'Add spool'"></span>
+        </a>
+      </div>
+      <p class="text-center text-sm text-slate-500 -mt-3">📷 Tip: point your phone camera at a spool’s QR label, or tap its NFC sticker.</p>
+
+      <!-- AMS units: front view, styled like the X2D wood-cabinet model (dark body, smoked lid, slot LEDs) -->
+      <div>
+        <div class="flex items-center justify-between mb-2 gap-2">
+          <h2 class="font-bold text-lg" x-text="simple ? 'What’s in the printer' : 'Bambu Lab X2D — loaded now'"></h2>
+          <span x-show="!simple" class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 shrink-0">Default printer</span>
+        </div>
+        <!-- widths follow the real units: AMS 2 Pro 372 mm, AMS HT 200 mm -->
+        <div class="grid grid-cols-[minmax(0,372fr)_minmax(0,200fr)] gap-3 items-end">
+          <template x-for="unit in amsUnits" :key="unit.name">
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-sm h-full flex flex-col" role="group" :aria-label="unit.name">
+              <div class="mb-2">
+                <h3 class="font-extrabold leading-tight" x-text="unit.name"></h3>
+                <p class="text-xs text-slate-500" x-text="unit.sub"></p>
+              </div>
+              <div class="mt-auto">
+                <div class="ams-body" :class="unit.ht && 'ams-ht'">
+                  <div class="ams-lid">
+                    <div class="grid gap-1.5" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`">
+                      <template x-for="slot in unit.slots" :key="slot.loc">
+                        <a :href="slot.spool ? '#/s/' + slot.spool.code : '#/add'" class="ams-slot focus-ring"
+                           :aria-label="slot.loc + ': ' + (slot.spool ? slot.spool.name + ' ' + slot.spool.material + ', ' + fmt(slot.spool.remaining_g) + ' grams left, ' + status(slot.spool).label : 'empty, add a spool')">
+                          <div class="spool" :class="!slot.spool && 'spool-empty'" :style="slot.spool ? spoolFill(slot.spool) : ''">
+                            <span x-show="!slot.spool" class="text-slate-400 text-lg font-bold" aria-hidden="true">+</span>
+                          </div>
+                        </a>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="ams-base grid gap-1.5" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`" aria-hidden="true">
+                    <template x-for="slot in unit.slots" :key="slot.loc">
+                      <div class="flex flex-col items-center gap-1">
+                        <span class="ams-led" :class="slot.spool ? 'led-' + status(slot.spool).key : 'led-off'"></span>
+                        <span class="text-[10px] font-bold text-slate-400" x-text="slot.n"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div class="mt-2 grid gap-1.5 text-center" :style="`grid-template-columns:repeat(${unit.slots.length},minmax(0,1fr))`" aria-hidden="true">
+                  <template x-for="slot in unit.slots" :key="slot.loc">
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold truncate" x-text="slot.spool ? fmt(slot.spool.remaining_g) + ' g' : 'empty'"></div>
+                      <div class="text-[11px] truncate" :class="slot.spool ? status(slot.spool).cls : 'text-slate-400'"
+                           x-text="slot.spool ? (unit.ht || !simple ? slot.spool.name : status(slot.spool).label.split(' ')[0]) : '—'"></div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Desiccant / dry storage -->
+      <div x-show="activeDry.length || boxedSpools.length" x-ref="dry" class="scroll-mt-20">
+        <h2 class="font-bold text-lg mb-2" x-text="simple ? 'Dry beads 💧' : 'Desiccant'"></h2>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <!-- one dry box per spool -->
+          <div x-show="boxedSpools.length" class="sm:col-span-3 bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm">
+            <div class="flex items-center gap-3 mb-1">
+              <span class="text-3xl" aria-hidden="true">📦</span>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-bold">Dry boxes</h3>
+                <p class="text-xs text-slate-500" x-text="(simple ? 'one box per roll · swap every ' : 'one per spool · every ') + (me?.household?.box_desiccant_days || 30) + ' days'"></p>
+              </div>
+            </div>
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+              <template x-for="s in boxedSpools" :key="s.id">
+                <li class="py-3 flex items-center gap-3">
+                  <a :href="'#/s/' + s.code" class="w-11 h-11 rounded-full shrink-0 ring-2 ring-slate-200 dark:ring-slate-700 focus-ring" :style="swatch(s)" :aria-label="'Open ' + s.name + ' ' + s.material"></a>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold truncate" x-text="s.name + ' · ' + s.material"></div>
+                    <div class="text-sm flex flex-wrap gap-x-2">
+                      <span class="text-slate-500" x-text="s.desiccant_changed_at ? ago(s.desiccant_changed_at) : '—'"></span>
+                      <span class="font-semibold" :class="boxStatus(s).cls" x-text="boxStatus(s).label"></span>
+                    </div>
+                    <div class="mt-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden" aria-hidden="true">
+                      <div class="h-full rounded-full" :class="boxStatus(s).bar" :style="`width:${boxStatus(s).pct}%`"></div>
+                    </div>
+                  </div>
+                  <button type="button" @click="openDry(s, true)" class="shrink-0 h-11 px-3 rounded-xl font-bold border-2 focus-ring"
+                          :class="['due', 'unknown'].includes(boxStatus(s).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
+                          :aria-label="'Log desiccant change for ' + s.name + ' ' + s.material" x-text="simple ? '♻️ Swapped' : '♻️ Changed'"></button>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <template x-for="d in activeDry" :key="d.id">
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+              <div class="flex items-center gap-3">
+                <span class="text-3xl" aria-hidden="true" x-text="d.kind === 'ams' ? '🖨️' : '📦'"></span>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-bold truncate" x-text="d.name"></h3>
+                  <p class="text-xs text-slate-500"
+                     x-text="(simple ? 'swap every ' : 'every ') + d.interval_days + ' days' + (spoolsIn(d) ? ' · ' + spoolsIn(d) + ' spool' + (spoolsIn(d) === 1 ? '' : 's') + ' inside' : '')"></p>
+                </div>
+              </div>
+              <div class="h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden" role="progressbar"
+                   :aria-label="d.name + ' desiccant age'" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="dryStatus(d).pct">
+                <div class="h-full rounded-full" :class="dryStatus(d).bar" :style="`width:${dryStatus(d).pct}%`"></div>
+              </div>
+              <div class="flex justify-between text-sm gap-2">
+                <span class="font-semibold" x-text="d.last_changed_at ? ago(d.last_changed_at) : '—'"></span>
+                <span class="font-semibold text-right" :class="dryStatus(d).cls" x-text="dryStatus(d).label"></span>
+              </div>
+              <p x-show="!simple && d.last_changed_at" class="text-xs text-slate-500"
+                 x-text="(d.last_action === 'recharged' ? '🔥 Recharged' : '🆕 New packs') + (d.last_changed_by ? ' by ' + d.last_changed_by : '') + (d.last_humidity_pct !== null && d.last_humidity_pct !== undefined ? ' · 💧 ' + (+d.last_humidity_pct) + ' %' : '')"></p>
+              <button type="button" @click="openDry(d)" class="mt-auto h-12 rounded-xl font-bold border-2 focus-ring"
+                      :class="['due', 'unknown'].includes(dryStatus(d).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
+                      x-text="simple ? '♻️ I swapped the beads' : (d.last_changed_at ? '♻️ Changed it' : '♻️ Log last change')"></button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="spools.length" class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter by material">
+        <template x-for="m in materialsInStock" :key="m">
+          <button role="tab" :aria-selected="filter===m" @click="filter=m"
+                  class="shrink-0 px-4 h-11 rounded-full font-semibold border-2 focus-ring"
+                  :class="filter===m ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'"
+                  x-text="m"></button>
+        </template>
+      </div>
+
+      <div x-show="!spools.length && !loadingSpools" class="text-center p-10 bg-white dark:bg-slate-900 rounded-2xl">
+        <div class="text-5xl" aria-hidden="true">📦</div>
+        <p class="mt-2 font-semibold">No spools yet.</p>
+        <a href="#/add" class="inline-block mt-3 h-12 px-6 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold">Add your first spool</a>
+      </div>
+
+      <ul class="grid sm:grid-cols-2 gap-3">
+        <template x-for="s in filtered" :key="s.id">
+          <li>
+            <a :href="'#/s/' + s.code" class="w-full text-left bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm flex gap-4 items-center hover:shadow-md transition focus-ring">
+              <div class="w-16 h-16 shrink-0 rounded-full ring-4 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="swatch(s)">
+                <div class="w-5 h-5 rounded-full bg-white/80 dark:bg-slate-900/80"></div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold truncate" x-text="s.name"></span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-semibold shrink-0" x-text="s.material"></span>
+                </div>
+                <div class="text-sm text-slate-500 truncate" x-text="simple ? '📍 ' + s.location : s.brand + ' · ' + s.location + ' · ' + s.code"></div>
+                <div class="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden" role="progressbar"
+                     :aria-valuenow="Math.round(s.remaining_g)" aria-valuemin="0" :aria-valuemax="Math.round(s.initial_g)" :aria-label="s.name + ' remaining'">
+                  <div class="h-full rounded-full" :class="status(s).bar" :style="`width:${pct(s)}%`"></div>
+                </div>
+                <div class="mt-1 flex justify-between text-sm gap-2">
+                  <span class="font-semibold" x-text="fmt(s.remaining_g) + ' g ' + (simple ? 'left' : 'remaining')"></span>
+                  <span class="font-semibold" :class="status(s).cls" x-text="status(s).label"></span>
+                </div>
+              </div>
+            </a>
+          </li>
+        </template>
+      </ul>
+    </section>
+
+    <!-- ===================== PICK A SPOOL ===================== -->
+    <section x-show="route==='pick'" class="space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'Which colour did you use?' : 'Pick a spool'"></h1>
+      <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <template x-for="s in pickList" :key="s.id">
+          <a :href="'#/s/' + s.code" class="p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-center focus-ring hover:shadow-md"
+             :aria-label="s.name + ' ' + s.material + ', ' + s.location">
+            <div class="mx-auto w-16 h-16 rounded-full ring-4 ring-slate-100 dark:ring-slate-800" :style="swatch(s)"></div>
+            <div class="mt-2 font-bold text-sm leading-tight" x-text="s.name"></div>
+            <div class="text-xs text-slate-500" x-text="s.material + ' · ' + s.location"></div>
+          </a>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===================== QUICK LOG ===================== -->
+    <section x-show="route==='s'" class="max-w-md mx-auto space-y-5">
+      <div x-show="notFound" class="text-center p-8 bg-white dark:bg-slate-900 rounded-3xl">
+        <div class="text-5xl" aria-hidden="true">🤔</div>
+        <p class="mt-2 font-bold">No spool with code <span class="font-mono" x-text="param"></span>.</p>
+        <p class="text-sm text-slate-500">It may belong to another account or was deleted.</p>
+        <a href="#/" class="inline-block mt-3 h-12 px-6 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold">Go home</a>
+      </div>
+
+      <template x-if="current && !notFound">
+        <div class="space-y-5">
+          <div class="rounded-3xl p-5 text-center shadow-sm bg-white dark:bg-slate-900">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-2" x-show="!simple">Spool <span class="font-mono" x-text="current.code"></span></div>
+            <div class="mx-auto w-28 h-28 rounded-full ring-8 ring-slate-100 dark:ring-slate-800 grid place-items-center" :style="swatch(current)">
+              <div class="w-8 h-8 rounded-full bg-white/80 dark:bg-slate-900/80"></div>
+            </div>
+            <h1 class="mt-3 text-2xl font-extrabold" x-text="current.name"></h1>
+            <p class="text-slate-500" x-text="current.brand + ' · ' + current.material"></p>
+            <p class="mt-3 text-5xl font-black" x-text="fmt(current.remaining_g) + ' g'"></p>
+            <p class="text-sm font-semibold" :class="status(current).cls"
+               x-text="simple ? status(current).label + ' · plastic left on this roll' : status(current).label + ' · minimum ' + current.effective_min_g + ' g'"></p>
+            <p x-show="!simple && (current.extruder_temp || current.bed_temp)" class="mt-2 text-xs text-slate-500"
+               x-text="'Maker says: ' + (current.extruder_temp ? 'nozzle ' + current.extruder_temp + ' °C' : '') + (current.extruder_temp && current.bed_temp ? ' · ' : '') + (current.bed_temp ? 'bed ' + current.bed_temp + ' °C' : '')"></p>
+            <label class="mt-3 inline-flex items-center gap-2 text-sm">
+              <span aria-hidden="true">📍</span><span class="sr-only">Location</span>
+              <select :value="current.location" @change="moveCurrent($event.target.value)" class="h-10 px-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-semibold">
+                <template x-for="l in locations" :key="l"><option :value="l" x-text="l" :selected="l===current.location"></option></template>
+                <template x-if="!locations.includes(current.location)"><option :value="current.location" x-text="current.location" selected></option></template>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-200 dark:bg-slate-800" role="tablist">
+            <button role="tab" :aria-selected="logMode==='used'" @click="logMode='used'" class="h-12 rounded-xl font-bold focus-ring" :class="logMode==='used' && 'bg-white dark:bg-slate-900 shadow'" x-text="simple ? '🖨️ I used some' : '🖨️ Used (g)'"></button>
+            <button role="tab" :aria-selected="logMode==='weigh'" @click="logMode='weigh'" class="h-12 rounded-xl font-bold focus-ring" :class="logMode==='weigh' && 'bg-white dark:bg-slate-900 shadow'" x-text="simple ? '⚖️ I weighed it' : '⚖️ Weigh spool'"></button>
+          </div>
+
+          <form x-show="logMode==='used'" @submit.prevent="logUsage()" class="space-y-4">
+            <label for="grams" class="block text-xl font-bold text-center" x-text="simple ? 'How many grams did your print use?' : 'Grams used'"></label>
+            <p x-show="simple" class="text-center text-sm text-slate-500">💡 Bambu Handy or the printer screen shows it under “filament” when the print is done.</p>
+            <div class="flex items-center gap-2">
+              <button type="button" @click="grams=Math.max(0,(+grams||0)-1)" class="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-3xl font-bold focus-ring" aria-label="One gram less">−</button>
+              <input id="grams" type="number" inputmode="decimal" min="0" step="0.01" x-model="grams" placeholder="0"
+                     class="flex-1 min-w-0 h-16 text-center text-4xl font-black rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+              <button type="button" @click="grams=(+grams||0)+1" class="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-3xl font-bold focus-ring" aria-label="One gram more">+</button>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <template x-for="q in [5,10,25,50,100]" :key="q">
+                <button type="button" @click="grams=Math.round(((+grams||0)+q)*100)/100" class="h-12 px-5 rounded-full bg-indigo-50 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200 font-bold focus-ring" x-text="'+' + q + ' g'"></button>
+              </template>
+            </div>
+            <input x-show="!simple" x-model="note" maxlength="80" placeholder="What did you print? (optional)" class="field">
+            <p x-show="+grams > +current.remaining_g" class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200 text-sm"
+               x-text="`That’s more than the spool has left (${fmt(current.remaining_g)} g). I’ll use ${fmt(current.remaining_g)} g — the spool will be empty.`"></p>
+            <button type="submit" :disabled="!(+grams>0) || busy"
+                    class="w-full h-16 rounded-2xl bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xl font-extrabold shadow focus-ring"
+                    x-text="busy ? 'Saving…' : (+grams>0 ? (simple ? `Take away ${grams} g ✅` : `Log ${grams} g`) : (simple ? 'Type a number first' : 'Enter grams'))"></button>
+          </form>
+
+          <form x-show="logMode==='weigh'" @submit.prevent="logWeigh()" class="space-y-4">
+            <label for="scale" class="block text-xl font-bold text-center" x-text="simple ? 'Put the roll on the scale. What does it say?' : 'Scale reading (spool + filament)'"></label>
+            <input id="scale" type="number" inputmode="decimal" min="0" step="0.1" x-model="scale" placeholder="e.g. 712"
+                   class="w-full h-16 text-center text-4xl font-black rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+            <label x-show="current.spool_weight_g === null" class="block">
+              <span class="text-sm font-semibold">Empty spool weight (g) — not known for this spool</span>
+              <input type="number" inputmode="decimal" min="0" x-model="emptyW" placeholder="e.g. 250" class="field mt-1">
+            </label>
+            <p class="text-center text-slate-600 dark:text-slate-300" x-show="+scale>0 && emptyW!==''">
+              <span x-text="scale"></span> g − empty spool <span x-text="emptyW"></span> g =
+              <b class="text-xl" x-text="fmt(Math.max(0, scale - emptyW)) + ' g left'"></b>
+            </p>
+            <button type="submit" :disabled="!(+scale>0) || emptyW==='' || busy" class="w-full h-16 rounded-2xl bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xl font-extrabold shadow focus-ring">Save weight</button>
+          </form>
+
+          <!-- its own dry box: switch + desiccant status -->
+          <div class="rounded-2xl p-4 bg-white dark:bg-slate-900 shadow-sm space-y-3">
+          <div class="flex items-center gap-3">
+            <span class="text-3xl" aria-hidden="true">📦</span>
+            <div class="flex-1 min-w-0">
+              <div class="font-bold" id="drybox-label" x-text="simple ? 'Is it in its dry box?' : 'In its dry box'"></div>
+              <div class="text-xs text-slate-500" x-text="current.location === 'Dry box' ? 'sealed with desiccant' : 'not boxed · 📍 ' + current.location"></div>
+            </div>
+            <button type="button" role="switch" :aria-checked="current.location === 'Dry box'" aria-labelledby="drybox-label" @click="toggleDryBox()"
+                    class="relative w-14 h-8 rounded-full transition focus-ring shrink-0" :class="current.location === 'Dry box' ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'">
+              <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition" :class="current.location === 'Dry box' && 'translate-x-6'"></span>
+            </button>
+          </div>
+          <div x-show="current.location === 'Dry box'" class="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-sm" x-text="simple ? 'Its beads' : 'Desiccant'"></div>
+              <div class="text-sm flex flex-wrap gap-x-2">
+                <span class="text-slate-500" x-text="current.desiccant_changed_at ? 'changed ' + ago(current.desiccant_changed_at) : 'not logged yet'"></span>
+                <span class="font-semibold" :class="boxStatus(current).cls" x-text="boxStatus(current).label"></span>
+              </div>
+            </div>
+            <button type="button" @click="openDry(current, true)" class="shrink-0 h-11 px-3 rounded-xl font-bold border-2 focus-ring"
+                    :class="['due', 'unknown'].includes(boxStatus(current).key) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'"
+                    x-text="simple ? '♻️ Swapped' : '♻️ Changed'"></button>
+          </div>
+          </div>
+
+          <a :href="'#/learn/' + learnFor(current.material).key" class="flex items-center justify-center gap-2 w-full h-14 rounded-2xl border-2 border-slate-200 dark:border-slate-700 font-bold focus-ring"
+             x-text="(simple ? '📘 How do I print with ' : '📘 X2D settings for ') + learnFor(current.material).key + '?'"></a>
+
+          <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm">
+            <div class="flex flex-wrap gap-2">
+              <a :href="'#/edit/' + current.code" x-show="adult" class="btn-outline">✏️ Edit</a>
+              <button @click="printLabels([current.code])" class="btn-outline">🏷️ Print label</button>
+              <button @click="openNfc(current.code)" class="btn-outline">📶 NFC tag</button>
+            </div>
+            <h2 class="font-bold mt-4 mb-2">History</h2>
+            <p x-show="!history.length" class="text-sm text-slate-500">Nothing logged yet.</p>
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+              <template x-for="h in history" :key="h.id">
+                <li class="py-2 flex justify-between gap-2">
+                  <span class="min-w-0 truncate" x-text="when(h.created_at) + ' · ' + (h.by?.display_name || '?') + (h.note ? ' · ' + h.note : '') + (h.kind!=='print' ? ' · ' + h.kind : '')"></span>
+                  <b class="shrink-0" x-text="(h.grams > 0 ? '−' : '+') + fmt(Math.abs(h.grams)) + ' g'"></b>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- ===================== EDIT SPOOL ===================== -->
+    <section x-show="route==='edit'" class="max-w-xl mx-auto space-y-4">
+      <template x-if="edit && current">
+        <form @submit.prevent="saveEdit()" class="space-y-4">
+          <div class="flex items-center gap-3">
+            <a :href="'#/s/' + edit.code" class="btn-outline">← Back</a>
+            <h1 class="text-2xl font-extrabold">Edit <span class="font-mono" x-text="edit.code"></span></h1>
+          </div>
+          <div x-show="!adult" class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950 text-sm">Only grown-ups can edit spools.</div>
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm grid sm:grid-cols-2 gap-3">
+            <label class="block"><span class="lbl">Name</span><input x-model="edit.name" required class="field mt-1"></label>
+            <label class="block"><span class="lbl">Brand</span><input x-model="edit.brand" class="field mt-1"></label>
+            <label class="block"><span class="lbl">Material</span><input x-model="edit.material" required class="field mt-1 uppercase"></label>
+            <label class="block"><span class="lbl">Colour</span><input type="color" x-model="edit.hex" class="mt-1 w-full h-12 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+            <label class="block"><span class="lbl">Location</span>
+              <select x-model="edit.location" class="field mt-1"><template x-for="l in locations" :key="l"><option :value="l" x-text="l"></option></template></select></label>
+            <label class="block"><span class="lbl">Filament when new (g)</span><input type="number" min="1" x-model="edit.initial_g" required class="field mt-1"></label>
+            <label class="block"><span class="lbl">Empty spool weight (g)</span><input type="number" min="0" x-model="edit.spool_weight_g" class="field mt-1"></label>
+            <label class="block"><span class="lbl">Warn me below (g)</span>
+              <input type="number" min="0" x-model="edit.min" :placeholder="'default ' + me.household.default_min_g" class="field mt-1">
+              <span class="text-xs text-slate-500" x-text="edit.spoolman_id ? 'Applies to all spools of this filament combined.' : 'Applies to this spool.'"></span></label>
+            <label class="block sm:col-span-2"><span class="lbl">Notes</span><textarea x-model="edit.notes" rows="2" class="field mt-1 h-auto py-2"></textarea></label>
+          </div>
+          <button type="submit" :disabled="edit.saving || !adult" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-bold">Save</button>
+
+          <div x-show="adult" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-2">
+            <h2 class="font-bold">Finished this spool?</h2>
+            <div class="grid sm:grid-cols-2 gap-2">
+              <button type="button" @click="archive(true)" class="btn-outline justify-center">🛒 Finished — buy again</button>
+              <button type="button" @click="archive(false)" class="btn-outline justify-center">📦 Finished — don’t rebuy</button>
+            </div>
+            <button type="button" @click="removeSpool()" class="text-sm text-red-700 dark:text-red-300 underline mt-2">Delete spool and history</button>
+          </div>
+        </form>
+      </template>
+    </section>
+
+    <!-- ===================== ADD SPOOL ===================== -->
+    <section x-show="route==='add'" class="max-w-xl mx-auto space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'A new roll arrived! 🎉' : 'Add spool'"></h1>
+      <ol class="flex gap-2 text-sm flex-wrap" aria-label="Steps">
+        <template x-for="(t,i) in ['Find it','Where & how much','Label']" :key="i">
+          <li class="px-3 py-1 rounded-full font-bold" :class="add.step===i+1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-800'" :aria-current="add.step===i+1 ? 'step' : null" x-text="(i+1) + ' · ' + t"></li>
+        </template>
+      </ol>
+
+      <div x-show="add.step===1" class="space-y-3">
+        <label for="q" class="font-semibold" x-text="simple ? 'Type the brand or colour on the box' : 'Search brand, colour or material'"></label>
+        <input id="q" x-model="add.q" @input.debounce.200ms="searchCatalog()" placeholder="e.g. bambu pla jade" autocomplete="off"
+               class="w-full h-14 px-4 text-lg rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-4 ring-indigo-300">
+        <p class="text-xs text-slate-500" x-show="catalog.state==='loading'">⏳ Downloading the SpoolmanDB catalogue (~6 MB, only the first time)…</p>
+        <p class="text-xs text-slate-500" x-show="catalog.state==='ready'" x-text="`Searching ${catalog.count.toLocaleString()} filaments from SpoolmanDB.`"></p>
+        <p class="text-sm text-red-700 dark:text-red-300" x-show="catalog.state==='error'">Couldn’t load the catalogue (<span x-text="catalog.err"></span>). <button class="link" @click="loadCatalog(true)">Retry</button></p>
+        <ul class="space-y-2">
+          <template x-for="f in add.results" :key="f.id">
+            <li><button @click="pickFilament(f)" class="w-full flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-left hover:ring-2 ring-indigo-300 focus-ring">
+              <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(f)"></span>
+              <span class="flex-1 min-w-0"><b x-text="f.name"></b><br>
+                <span class="text-sm text-slate-500" x-text="f.brand + ' · ' + f.material + ' · ' + f.weight + ' g' + (f.finish ? ' · ' + f.finish : '') + (f.translucent ? ' · translucent' : '') + (f.glow ? ' · glow' : '')"></span></span>
+              <span aria-hidden="true">›</span>
+            </button></li>
+          </template>
+        </ul>
+        <p x-show="add.q.length > 2 && !add.results.length && catalog.state==='ready'" class="text-sm text-slate-500">Nothing found.</p>
+        <button @click="customFilament()" class="text-sm link">Can’t find it? Add it by hand</button>
+      </div>
+
+      <form x-show="add.step===2" @submit.prevent="saveAdd()" class="space-y-4">
+        <div x-show="add.pick" class="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
+          <span class="w-12 h-12 rounded-full shrink-0" :style="add.pick ? swatch(add.pick) : ''"></span>
+          <div class="flex-1"><b x-text="add.pick?.name"></b><br><span class="text-sm text-slate-500" x-text="(add.pick?.brand || '') + ' · ' + (add.pick?.material || '')"></span></div>
+          <button type="button" @click="add.step=1" class="link text-sm">Change</button>
+        </div>
+        <div x-show="add.custom" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm grid grid-cols-2 gap-3">
+          <label class="block col-span-2"><span class="lbl">Name / colour</span><input x-model="add.name" class="field mt-1" placeholder="e.g. Galaxy Purple"></label>
+          <label class="block"><span class="lbl">Brand</span><input x-model="add.brand" class="field mt-1"></label>
+          <label class="block"><span class="lbl">Material</span><input x-model="add.material" class="field mt-1 uppercase" list="materials"></label>
+          <label class="block col-span-2"><span class="lbl">Colour</span><input type="color" x-model="add.hex" class="mt-1 w-full h-12 rounded-xl border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"></label>
+          <datalist id="materials"><template x-for="l in LEARN" :key="l.key"><option :value="l.key"></option></template></datalist>
+        </div>
+        <fieldset>
+          <legend class="font-semibold mb-2" x-text="simple ? 'Where will it live?' : 'Location'"></legend>
+          <div class="grid grid-cols-4 gap-2">
+            <template x-for="l in locations" :key="l">
+              <button type="button" @click="add.location=l" :aria-pressed="add.location===l" class="h-12 rounded-xl border-2 font-semibold text-sm focus-ring"
+                      :class="add.location===l ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'" x-text="l"></button>
+            </template>
+          </div>
+          <p x-show="SLOTS.includes(add.location) || add.location==='Ender 3'" class="text-xs text-slate-500 mt-1">Whatever is in that slot now will move to the Shelf.</p>
+        </fieldset>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block"><span class="lbl" x-text="simple ? 'How many rolls?' : 'Quantity'"></span><input type="number" min="1" max="20" x-model="add.qty" class="field mt-1"></label>
+          <label class="block" x-show="!simple"><span class="lbl">Filament per roll (g)</span><input type="number" min="1" x-model="add.initial" class="field mt-1"></label>
+          <label class="block" x-show="!simple"><span class="lbl">Empty spool (g)</span><input type="number" min="0" x-model="add.spoolWeight" placeholder="unknown" class="field mt-1"></label>
+          <label class="block" x-show="adult && !simple"><span class="lbl">Warn me below (g)</span><input type="number" min="0" x-model="add.min" :placeholder="'default ' + (me?.household?.default_min_g ?? 200)" class="field mt-1"></label>
+        </div>
+        <button type="submit" :disabled="add.saving" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-bold" x-text="add.saving ? 'Saving…' : 'Save'"></button>
+      </form>
+
+      <div x-show="add.step===3" class="space-y-4 text-center">
+        <p class="text-lg" x-text="add.created.length === 1 ? 'Spool code' : 'Spool codes'"></p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <template x-for="c in add.created" :key="c">
+            <div class="p-3 bg-white rounded-2xl shadow-sm text-slate-900">
+              <div class="w-32 h-32 mx-auto" x-html="qr(labelUrl(c))"></div>
+              <div class="font-mono font-black text-2xl mt-1" x-text="c"></div>
+              <button @click="openNfc(c)" class="mt-1 text-sm link">📶 Write NFC</button>
+            </div>
+          </template>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button @click="printLabels(add.created)" class="h-14 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold">🏷️ Print label</button>
+          <a href="#/" class="h-14 leading-[3.5rem] rounded-2xl bg-indigo-600 text-white text-lg font-bold">Done 🎉</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== LABELS ===================== -->
+    <section x-show="route==='labels'" class="space-y-4">
+      <div class="no-print flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[16rem]">
+          <h1 class="text-2xl font-extrabold">Labels &amp; NFC</h1>
+          <p class="text-slate-500 text-sm">Each label opens the spool straight on “how much did you use?”. Tick the ones to print.</p>
+        </div>
+        <button @click="labelSel = labelSel.length ? [] : spools.map(s=>s.code)" class="btn-outline" x-text="labelSel.length ? 'Select none' : 'Select all'"></button>
+        <button @click="window.print()" :disabled="!labelSel.length" class="h-12 px-5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold disabled:opacity-50" x-text="`🖨️ Print ${labelSel.length}`"></button>
+      </div>
+      <div class="label-sheet grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <template x-for="s in spools" :key="s.id">
+          <label class="label-item relative bg-white text-slate-900 rounded-2xl p-3 shadow-sm border-2 cursor-pointer"
+                 :class="labelSel.includes(s.code) ? 'border-indigo-500' : 'border-transparent no-print opacity-70'">
+            <input type="checkbox" class="no-print absolute top-2 right-2 w-5 h-5" :value="s.code" x-model="labelSel" :aria-label="'Select label for ' + s.name">
+            <div class="flex gap-3 items-center">
+              <div class="label-qr w-20 h-20 shrink-0" x-html="qr(labelUrl(s.code))"></div>
+              <div class="min-w-0">
+                <div class="w-6 h-6 rounded-full border border-slate-400" :style="swatch(s)"></div>
+                <div class="font-bold text-sm leading-tight mt-1 truncate" x-text="s.name"></div>
+                <div class="text-xs truncate" x-text="s.brand + ' · ' + s.material"></div>
+                <div class="font-mono font-black text-lg" x-text="s.code"></div>
+              </div>
+            </div>
+            <button type="button" @click.prevent="openNfc(s.code)" class="no-print mt-2 text-xs link">📶 Write NFC tag</button>
+          </label>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===================== SHOPPING LIST ===================== -->
+    <section x-show="route==='shop'" class="max-w-xl mx-auto space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'Almost empty 😬' : 'To order'"></h1>
+      <div x-show="!shop.length" class="text-center p-10 bg-white dark:bg-slate-900 rounded-2xl">
+        <div class="text-5xl" aria-hidden="true">🎉</div><p class="mt-2 font-semibold">Nothing to order — you’re stocked up!</p>
+      </div>
+      <ul class="space-y-3">
+        <template x-for="f in shop" :key="f.filament_key">
+          <li class="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm">
+            <span class="w-12 h-12 rounded-full shrink-0 ring-2 ring-slate-200 dark:ring-slate-700" :style="swatch(f)"></span>
+            <div class="flex-1 min-w-0"><b x-text="f.name"></b><br><span class="text-sm text-slate-500" x-text="f.brand + ' · ' + f.material + (f.active_spools ? '' : ' · finished')"></span></div>
+            <div class="text-right shrink-0"><b class="text-red-700 dark:text-red-300" x-text="fmt(f.total_remaining_g) + ' g'"></b><br><span class="text-xs text-slate-500" x-text="'min ' + f.min_g + ' g'"></span></div>
+          </li>
+        </template>
+      </ul>
+      <button x-show="shop.length && !simple" @click="copy(shopText(), 'List copied')" class="btn-outline w-full justify-center">📋 Copy list</button>
+    </section>
+
+    <!-- ===================== LEARN ===================== -->
+    <section x-show="route==='learn' && !param" class="space-y-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[16rem]">
+          <h1 class="text-2xl font-extrabold" x-text="simple ? 'Learn about plastics 🧪' : 'Materials'"></h1>
+          <p class="text-slate-500 text-sm">Settings for the <b>Bambu Lab X2D</b>, 0.4 mm nozzle. Starting points — fine-tune in Bambu Studio.</p>
+        </div>
+        <a href="#/cards" class="no-print btn-outline">🖨️ Print all cards</a>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <template x-for="m in LEARN" :key="m.key">
+          <a :href="'#/learn/' + m.key" class="block p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition focus-ring border-l-8" :style="`border-color:${m.color}`">
+            <div class="flex items-center gap-3"><span class="text-4xl" aria-hidden="true" x-text="m.emoji"></span>
+              <div><div class="text-xl font-extrabold" x-text="m.key"></div>
+                <div class="text-sm" :aria-label="'Difficulty ' + m.level + ' of 5'"><span aria-hidden="true" class="text-indigo-600 dark:text-indigo-400" x-text="'●'.repeat(m.level)"></span><span aria-hidden="true" class="text-slate-300 dark:text-slate-600" x-text="'○'.repeat(5-m.level)"></span>
+                  <span class="text-slate-500" x-text="['','Super easy','Easy','Medium','Tricky','Expert'][m.level]"></span></div></div></div>
+            <p class="mt-3 text-slate-600 dark:text-slate-300" x-text="m.kid"></p>
+          </a>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===================== MATERIAL CARD(S) ===================== -->
+    <section x-show="(route==='learn' && param) || route==='cards'" class="space-y-4">
+      <div class="no-print flex flex-wrap gap-2">
+        <a href="#/learn" class="btn-outline">← All materials</a>
+        <button @click="window.print()" class="ml-auto h-11 px-4 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold"
+                x-text="route==='cards' ? '🖨️ Print all (4 per A4)' : '🖨️ Print card (A6)'"></button>
+      </div>
+      <p x-show="route==='learn' && param && !card" class="p-6 bg-white dark:bg-slate-900 rounded-2xl">Unknown material.</p>
+      <div class="cards-grid grid gap-6" :class="route==='cards' ? 'md:grid-cols-2' : 'lg:grid-cols-[auto_1fr] items-start'">
+        <template x-for="c in cardList" :key="c.key">
+          <article class="card-print mx-auto w-full max-w-[420px] bg-white text-slate-900 rounded-3xl shadow-lg border-4 overflow-hidden" :style="`border-color:${c.color}`">
+            <header class="card-head p-4 text-white flex items-center gap-3" :style="`background:${c.color}`">
+              <span class="text-4xl" aria-hidden="true" x-text="c.emoji"></span>
+              <div class="flex-1"><h2 class="text-3xl font-black" x-text="c.key"></h2><div class="text-sm opacity-90">Bambu Lab X2D · 0.4 mm</div></div>
+              <div class="bg-white p-1 rounded w-14 h-14" x-html="qr(learnUrl(c.key), 2)" aria-hidden="true"></div>
+            </header>
+            <div class="p-4 space-y-3">
+              <p class="font-semibold" x-text="c.kid"></p>
+              <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-600">🔥 Nozzle</div><div class="text-2xl font-black" x-text="c.nozzle"></div><div class="text-[11px] text-slate-600" x-text="c.nozzleRange + ' °C'"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-600">🛏️ Bed</div><div class="text-2xl font-black" x-text="c.bed"></div><div class="text-[11px] text-slate-600" x-text="c.bedRange + ' °C'"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-600">💨 Fan</div><div class="text-lg font-black" x-text="c.fan"></div></div>
+                <div class="rounded-xl bg-slate-100 p-2"><div class="text-xs uppercase font-bold text-slate-600">🚪 Door</div><div class="text-lg font-black" x-text="c.door"></div></div>
+              </div>
+              <table class="w-full text-sm">
+                <tbody class="divide-y divide-slate-200">
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Plate</th><td class="text-right" x-text="c.plate"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Speed</th><td class="text-right" x-text="c.speed"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Max flow</th><td class="text-right" x-text="c.flow"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Walls</th><td class="text-right" x-text="c.walls"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Top / bottom</th><td class="text-right" x-text="c.tb"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Infill</th><td class="text-right" x-text="c.infill"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Dry</th><td class="text-right" x-text="c.dry"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Feed from</th><td class="text-right" x-text="c.feed"></td></tr>
+                  <tr x-show="c.hardened"><th scope="row" class="text-left py-1 pr-2 font-semibold">Nozzle type</th><td class="text-right font-bold text-red-700">⚠️ Hardened steel</td></tr>
+                </tbody>
+              </table>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="rounded-xl bg-emerald-50 p-2"><b>👍 Good for</b><p x-text="c.good"></p></div>
+                <div class="rounded-xl bg-red-50 p-2"><b>👎 Watch out</b><p x-text="c.bad"></p></div>
+              </div>
+              <p class="text-[10px] text-slate-500">Starting values from Bambu Studio generic profiles. Always check the spool’s label.</p>
+            </div>
+          </article>
+        </template>
+        <aside x-show="route==='learn' && card" class="no-print space-y-3 max-w-prose">
+          <h2 class="text-xl font-bold" x-text="'About ' + (card?.key || '')"></h2>
+          <p class="text-slate-700 dark:text-slate-300" x-text="card?.about"></p>
+          <h3 class="font-bold">Tips</h3>
+          <ul class="list-disc pl-5 space-y-1 text-slate-700 dark:text-slate-300">
+            <template x-for="t in (card?.tips || [])" :key="t"><li x-text="t"></li></template>
+          </ul>
+          <p class="text-sm text-slate-500">The card prints at A6 — four fit on an A4 sheet and a standard laminating pouch.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section x-show="route==='settings' && ready" class="max-w-xl mx-auto space-y-4">
+      <h1 class="text-2xl font-extrabold" x-text="simple ? 'Me 🙂' : 'Settings'"></h1>
+
+      <form @submit.prevent="saveName()" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
+        <h2 class="font-bold">You</h2>
+        <p class="text-sm text-slate-500" x-text="session?.user?.email + (me?.is_kid ? ' · kid account' : '')"></p>
+        <label class="block"><span class="lbl">Your name</span>
+          <div class="flex gap-2 mt-1"><input x-model="myName" class="field"><button class="btn-outline shrink-0">Save</button></div></label>
+        <label x-show="adult" class="flex items-center justify-between gap-3">
+          <span><span class="font-semibold">Simple mode</span><br><span class="text-sm text-slate-500">Bigger, simpler screens on this device.</span></span>
+          <input type="checkbox" :checked="simplePref" @change="toggleSimple()" class="w-6 h-6">
+        </label>
+      </form>
+
+      <template x-if="isOwner">
+        <div class="space-y-4">
+          <form @submit.prevent="saveHousehold()" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
+            <h2 class="font-bold">Workshop</h2>
+            <label class="block"><span class="lbl">Name</span><input x-model="hh.name" class="field mt-1"></label>
+            <label class="block"><span class="lbl">Default “warn me below” (g)</span><input type="number" min="0" x-model="hh.default_min_g" class="field mt-1"></label>
+            <button class="btn-outline">Save</button>
+          </form>
+
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
+            <h2 class="font-bold">Family</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-300">To add someone, they create an account with this invite code. New members start as <b>kids</b> (can log usage and add rolls, can’t edit or delete).</p>
+            <div class="flex items-center gap-2">
+              <code class="flex-1 text-center text-2xl font-black tracking-widest bg-slate-100 dark:bg-slate-800 rounded-xl py-2" x-text="me.household.invite_code"></code>
+              <button @click="copy(me.household.invite_code, 'Code copied')" class="btn-outline" aria-label="Copy invite code">📋</button>
+              <button @click="rotateInvite()" class="btn-outline" aria-label="Make a new invite code">🔄</button>
+            </div>
+            <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+              <template x-for="m in members" :key="m.id">
+                <li class="py-2 flex items-center justify-between gap-2">
+                  <span><span x-text="m.is_kid ? '🧒' : '🧑'"></span> <b x-text="m.display_name"></b> <span x-show="m.id===me.id" class="text-xs text-slate-500">(you, owner)</span></span>
+                  <button x-show="m.id!==me.id" @click="toggleKid(m)" class="btn-outline text-sm" x-text="m.is_kid ? 'Make grown-up' : 'Make kid'"></button>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+      </template>
+
+      <div x-show="adult" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
+        <h2 class="font-bold">Dry storage</h2>
+        <p class="text-sm text-slate-500">How often the desiccant should be swapped or recharged. Turn off what you don’t use.</p>
+        <form x-show="isOwner" @submit.prevent="saveHousehold()" class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] gap-2 items-end">
+          <div><span class="lbl">📦 Dry boxes (one per spool)</span>
+            <p class="text-xs text-slate-500 mt-1">Switch on “In its dry box” on a spool’s page.</p></div>
+          <label class="block"><span class="lbl">Days</span><input type="number" min="1" max="365" x-model="hh.box_desiccant_days" class="field mt-1"></label>
+          <span class="flex items-center h-12"><button class="btn-outline">Save</button></span>
+        </form>
+        <template x-for="d in drySpots" :key="d.id">
+          <form @submit.prevent="saveDrySpot(d)" class="grid grid-cols-[minmax(0,1fr)_4.5rem_auto] gap-2 items-end">
+            <label class="block"><span class="lbl" x-text="d.kind === 'ams' ? 'AMS unit' : 'Dry box'"></span>
+              <input x-model="d.name" :readonly="d.kind === 'ams'" required class="field mt-1" :class="d.kind === 'ams' && 'opacity-70'"></label>
+            <label class="block"><span class="lbl">Days</span><input type="number" min="1" max="365" x-model="d.interval_days" class="field mt-1"></label>
+            <span class="flex items-center gap-2 h-12">
+              <label class="flex items-center gap-1 text-sm"><input type="checkbox" x-model="d.active" class="w-5 h-5"> On</label>
+              <button class="btn-outline">Save</button>
+            </span>
+          </form>
+        </template>
+        <form @submit.prevent="addDrySpot()" class="flex gap-2">
+          <input x-model="newSpot" maxlength="40" placeholder="New shared dry box (optional)" class="field" aria-label="New shared dry box name">
+          <button class="btn-outline shrink-0">➕ Add</button>
+        </form>
+      </div>
+
+      <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-2">
+        <h2 class="font-bold">Printers</h2>
+        <ul class="text-sm">
+          <template x-for="p in printers" :key="p.id">
+            <li class="py-1"><b x-text="p.name"></b> · <span x-text="p.model"></span> <span x-show="p.is_default" class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">default</span></li>
+          </template>
+        </ul>
+      </div>
+
+      <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-bold">SpoolmanDB catalogue</h2>
+          <a href="https://github.com/Donkie/SpoolmanDB" target="_blank" rel="noopener" class="link text-sm">GitHub repo ↗</a>
+        </div>
+        <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt class="text-slate-500">On this device</dt>
+          <dd x-text="catalogTs ? ago(catalogTs) + ' · ' + fmtDate(catalogTs) : 'not downloaded yet'"></dd>
+          <dt class="text-slate-500">Last change upstream</dt>
+          <dd>
+            <template x-if="upstream"><a :href="upstream.url" target="_blank" rel="noopener" class="link" :title="upstream.message"
+               x-text="ago(upstream.date) + ' · ' + fmtDate(upstream.date)"></a></template>
+            <span x-show="!upstream" class="text-slate-500" x-text="upstreamErr || 'checking…'"></span>
+          </dd>
+        </dl>
+        <p x-show="catalogStale" class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200 text-sm">🆕 SpoolmanDB has changed since your copy — refresh to get the newest filaments.</p>
+        <p x-show="upstream && catalogTs && !catalogStale" class="text-sm text-emerald-700 dark:text-emerald-300">✅ Your copy is up to date.</p>
+        <div class="flex flex-wrap gap-2">
+          <button @click="loadCatalog(true).then(() => showToast('Catalogue updated ✅'))" class="btn-outline"
+                  :class="catalogStale && 'border-indigo-600 bg-indigo-600 text-white'" x-text="catalog.state==='loading' ? 'Downloading…' : 'Refresh now'"></button>
+          <a href="https://github.com/Donkie/SpoolmanDB/commits/main/filaments" target="_blank" rel="noopener" class="btn-outline">📜 Recent changes ↗</a>
+        </div>
+      </div>
+
+      <button @click="signOut()" class="w-full h-14 rounded-2xl border-2 border-slate-300 dark:border-slate-700 font-bold">Log out</button>
+    </section>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav x-show="ready" class="no-print fixed bottom-0 inset-x-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom)]" aria-label="Main">
+    <div class="max-w-5xl mx-auto grid grid-cols-5">
+      <template x-for="n in nav" :key="n.r">
+        <a :href="'#/' + n.r" class="h-16 flex flex-col items-center justify-center gap-0.5 font-semibold text-xs focus-ring"
+           :class="route===n.r || (n.r==='learn' && route==='cards') ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'" :aria-current="route===n.r ? 'page' : null">
+          <span class="text-2xl" aria-hidden="true" x-text="n.i"></span><span x-text="n.t"></span>
+        </a>
+      </template>
+    </div>
+  </nav>
+</div>
+
+<!-- Toast -->
+<div x-show="toast" x-cloak x-transition role="status" aria-live="polite"
+     class="no-print fixed bottom-20 inset-x-4 sm:left-auto sm:right-6 sm:w-96 z-30 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl p-4 shadow-xl flex items-center gap-3">
+  <span class="flex-1 font-semibold" x-text="toast"></span>
+  <!-- !! matters: Alpine *calls* an expression that evaluates to a function -->
+  <button x-show="!!undoFn" @click="runUndo()" class="h-11 px-4 rounded-xl bg-white/15 dark:bg-slate-900/10 font-bold">Undo</button>
+</div>
+
+<!-- Desiccant dialog -->
+<div x-show="dry.open" x-cloak class="no-print fixed inset-0 z-40 bg-black/50 grid place-items-center p-4" @keydown.escape.window="dry.open=false" @click.self="dry.open=false">
+  <form @submit.prevent="saveDry()" role="dialog" aria-modal="true" aria-labelledby="dry-title"
+        class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
+    <h2 id="dry-title" class="text-xl font-extrabold text-center" x-text="(simple ? 'Fresh beads for the ' : 'Desiccant · ') + (dry.title || '')"></h2>
+    <p x-show="simple" class="text-sm text-center text-slate-600 dark:text-slate-300">💡 If the beads changed colour, they are full of water and need swapping.</p>
+    <fieldset class="grid grid-cols-2 gap-2">
+      <legend class="sr-only">What did you do?</legend>
+      <button type="button" @click="dry.action='replaced'" :aria-pressed="dry.action==='replaced'" class="p-3 rounded-2xl border-2 font-bold focus-ring"
+              :class="dry.action==='replaced' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">
+        <span class="block text-3xl" aria-hidden="true">🆕</span>New packs</button>
+      <button type="button" @click="dry.action='recharged'" :aria-pressed="dry.action==='recharged'" class="p-3 rounded-2xl border-2 font-bold focus-ring"
+              :class="dry.action==='recharged' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'">
+        <span class="block text-3xl" aria-hidden="true">🔥</span><span x-text="simple ? 'Dried the old ones' : 'Recharged (dried)'"></span></button>
+    </fieldset>
+    <label class="block"><span class="lbl">Hygrometer reading <span class="font-normal text-slate-500">(optional)</span></span>
+      <span class="flex items-center gap-2 mt-1">
+        <input type="number" inputmode="decimal" min="0" max="100" step="0.1" x-model="dry.humidity" placeholder="e.g. 25" class="field">
+        <span class="font-bold">%</span></span></label>
+    <input x-show="!simple" x-model="dry.note" maxlength="80" placeholder="Note (optional)" class="field" aria-label="Note">
+    <button type="submit" :disabled="dry.busy" class="w-full h-14 rounded-2xl bg-indigo-600 disabled:opacity-60 text-white text-lg font-extrabold"
+            x-text="dry.busy ? 'Saving…' : 'Save ✅'"></button>
+    <div x-show="!simple && dry.history.length">
+      <h3 class="font-bold text-sm mb-1">Recent changes</h3>
+      <ul class="text-sm divide-y divide-slate-100 dark:divide-slate-800">
+        <template x-for="h in dry.history" :key="h.id">
+          <li class="py-1.5 flex justify-between gap-2">
+            <span class="truncate" x-text="fmtDate(h.created_at) + ' · ' + (h.by?.display_name || '?') + (h.note ? ' · ' + h.note : '')"></span>
+            <span class="shrink-0" x-text="(h.action === 'recharged' ? '🔥' : '🆕') + (h.humidity_pct !== null ? ' 💧 ' + (+h.humidity_pct) + ' %' : '')"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
+    <button type="button" @click="dry.open=false" class="btn-outline w-full justify-center">Cancel</button>
+  </form>
+</div>
+
+<!-- NFC dialog -->
+<div x-show="nfc.open" x-cloak class="no-print fixed inset-0 z-40 bg-black/50 grid place-items-center p-4" @keydown.escape.window="nfc.open=false" @click.self="nfc.open=false">
+  <div role="dialog" aria-modal="true" aria-labelledby="nfc-title" class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-3 text-center">
+    <div class="text-6xl" :class="nfc.state==='writing' && 'animate-pulse'" aria-hidden="true" x-text="nfc.state==='done' ? '✅' : nfc.state==='error' ? '⚠️' : '📶'"></div>
+    <h2 id="nfc-title" class="text-xl font-extrabold" x-text="nfc.state==='done' ? 'Tag written!' : 'NFC tag for ' + nfc.code"></h2>
+    <template x-if="nfcSupported && nfc.state!=='done'">
+      <div class="space-y-3">
+        <p class="text-sm text-slate-600 dark:text-slate-300" x-text="nfc.state==='writing' ? 'Hold the sticker to the back of your phone…' : 'Tap Write, then hold the NTAG215 sticker to the back of your phone.'"></p>
+        <button @click="writeNfc()" :disabled="nfc.state==='writing'" class="w-full h-12 rounded-xl bg-indigo-600 disabled:opacity-60 text-white font-bold">Write tag</button>
+      </div>
+    </template>
+    <template x-if="!nfcSupported">
+      <p class="text-sm text-slate-600 dark:text-slate-300">This browser can’t write NFC (only Chrome on Android can). Copy the link and write it as a <b>URL record</b> with the <b>NFC Tools</b> app. Any phone can read it afterwards.</p>
+    </template>
+    <p x-show="nfc.msg" class="text-sm text-red-700 dark:text-red-300" x-text="nfc.msg"></p>
+    <code class="block text-xs bg-slate-100 dark:bg-slate-800 rounded-lg p-2 break-all" x-text="labelUrl(nfc.code)"></code>
+    <div class="grid grid-cols-2 gap-2">
+      <button @click="copy(labelUrl(nfc.code), 'Link copied')" class="btn-outline justify-center">📋 Copy link</button>
+      <button @click="nfc.open=false" class="btn-outline justify-center">Close</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
