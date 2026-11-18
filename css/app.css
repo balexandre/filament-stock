@@ -1,0 +1,79 @@
+[x-cloak] { display: none !important; }
+
+html.simple { font-size: 18px; } /* everything is rem-based, so this scales the whole UI */
+
+/* Shared bits (plain CSS so they work with the Tailwind Play CDN) */
+.field {
+  width: 100%; height: 3rem; padding: 0 .75rem; border-radius: .75rem;
+  border: 2px solid #cbd5e1; background: #fff; color: inherit;
+}
+.field:focus { outline: none; box-shadow: 0 0 0 4px #a5b4fc; border-color: #6366f1; }
+.lbl { font-size: .875rem; font-weight: 600; }
+.link { color: #4f46e5; text-decoration: underline; text-underline-offset: 2px; }
+.btn-outline {
+  display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; padding: 0 1rem;
+  border-radius: .75rem; border: 2px solid #cbd5e1; font-weight: 600; background: transparent;
+}
+.focus-ring:focus { outline: none; }
+.focus-ring:focus-visible, .btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 4px #a5b4fc; }
+.label-qr svg, .card-head svg, [x-html] > svg { width: 100%; height: 100%; display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- AMS units (look borrowed from the X2D wood-cabinet model) ---------- */
+.ams-body { background: #34363b; border-radius: 14px; padding: 6px 6px 4px;
+            box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.15); }
+.ams-lid { position: relative; padding: 10px 6px; border-radius: 9px 9px 4px 4px;
+           background: linear-gradient(180deg, rgba(28,32,36,.95), rgba(28,32,36,.8));
+           border: 1px solid rgba(255,255,255,.08); }
+.ams-lid::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+                  background: linear-gradient(115deg, rgba(255,255,255,.14), transparent 38%); }
+.ams-ht .ams-lid { padding-top: 28px; padding-bottom: 28px; } /* the HT is taller (265 vs 227 mm) */
+.ams-base { padding: 7px 4px 2px; }
+.ams-slot { display: block; border-radius: 9999px; width: 100%; max-width: 4.75rem; margin: 0 auto; }
+.ams-ht .ams-slot { width: 48%; min-width: 2.75rem; }
+/* grey flange so black spools still stand out against the smoked lid */
+.spool { aspect-ratio: 1; border-radius: 9999px; display: grid; place-items: center;
+         box-shadow: 0 0 0 2px #15171a, 0 0 0 4px #5b6068, inset 0 0 0 2px rgba(0,0,0,.25); transition: transform .15s; }
+.ams-slot:hover .spool { transform: scale(1.06); }
+.spool-empty { background: transparent; border: 2px dashed #4b5563; box-shadow: none; }
+.ams-led { display: block; width: 55%; height: 4px; border-radius: 2px; }
+.led-ok    { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.led-mid   { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.led-low   { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.led-empty, .led-off { background: #4b5563; }
+
+.theme-btn { width: 2.75rem; height: 2.75rem; border-radius: 9999px; display: grid; place-items: center;
+             border: 2px solid #cbd5e1; color: #334155; background: transparent; flex-shrink: 0; }
+.theme-btn:hover { background: rgba(99,102,241,.08); }
+.theme-btn svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 2;
+                 stroke-linecap: round; stroke-linejoin: round; }
+html.dark .theme-btn { border-color: #334155; color: #e2e8f0; }
+
+/* dark mode is a class on <html> (see applyTheme in js/app.js) */
+html.dark .field { background: #0f172a; border-color: #334155; }
+html.dark .btn-outline { border-color: #334155; }
+html.dark .link { color: #a5b4fc; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  @page { size: A4; margin: 8mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .no-print { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; }
+
+  /* Spool labels: 3 columns of 62 × 32 mm */
+  .label-sheet { display: grid !important; grid-template-columns: repeat(3, 62mm) !important; gap: 3mm !important; }
+  .label-item { width: 62mm; height: 32mm; padding: 2mm !important; border: 1px dashed #999 !important;
+                border-radius: 2mm !important; box-shadow: none !important; opacity: 1 !important; break-inside: avoid; }
+  .label-item .label-qr { width: 26mm !important; height: 26mm !important; }
+
+  /* Material cards: A6, four per A4 */
+  .cards-grid { display: grid !important; grid-template-columns: repeat(2, 95mm) !important; gap: 4mm !important; }
+  .card-print { width: 95mm !important; max-width: none !important; min-height: 136mm; margin: 0 !important;
+                box-shadow: none !important; border-radius: 3mm !important; break-inside: avoid;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10pt; }
+}
