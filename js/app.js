@@ -61,6 +61,12 @@ document.addEventListener('alpine:init', () => {
     lines: [], linesState: 'idle', lineFocus: null,
 
     LEARN, SLOTS,
+    // official X2D help (shown on Learn and in Settings)
+    HELP_LINKS: [
+      { icon: '📕', label: 'X2D manual', note: 'PDF', url: 'https://csm.bblcdn.com/hub/7c58718aaa2e40edab56efb87419a96a.pdf' },
+      { icon: '📚', label: 'Bambu Lab Wiki', note: 'setup, maintenance & troubleshooting', url: 'https://wiki.bambulab.com/home' },
+      { icon: '🎬', label: 'Bambu Lab Academy', note: 'video tutorials', url: 'https://bambulab.com/support/academy' },
+    ],
 
     // ---------- derived ----------
     get simple() { return !!this.me?.is_kid || this.simplePref; },
@@ -577,6 +583,15 @@ document.addEventListener('alpine:init', () => {
       return { key: 'ok', label: '🟢 OK', bar: 'bg-emerald-500', cls: 'text-emerald-700 dark:text-emerald-300' };
     },
     learnFor(material) { return learnFor(material); },
+    moistureWord(level) { return moistureWord(level); },
+    moistureAdvice(s) { return moistureAdvice(s.material, s.location === BOX_LOC); },
+    // 3 drops: 'full' | 'half' | 'empty' for drop i (0–2)
+    drop(level, i) { return level >= i + 1 ? 'full' : level >= i + 0.5 ? 'half' : 'empty'; },
+    glueText(g) {
+      if (!g) return this.simple ? 'Same as the main plastic' : 'Same as the main material';
+      const yn = v => (v ? 'yes' : 'no');
+      return `Textured PEI: ${yn(g.textured)} · Smooth PEI: ${yn(g.smooth)}`;
+    },
     openLearnFor(material) { this.go('learn/' + learnFor(material).key); },
     qr(text, cell = 3) {
       try {

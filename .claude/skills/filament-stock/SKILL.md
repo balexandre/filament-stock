@@ -143,6 +143,17 @@ the UI must cope with the signup endpoint returning an error.
   volumetric flow, walls, top/bottom layers, infill pattern + %, drying temp/time, which AMS
   (AMS 2 Pro vs AMS HT vs external spool), hardened nozzle required?
 - Values are **starting points** based on Bambu Studio generic profiles; label them as such.
+- Each `LEARN` entry also has `moisture` (0–3 in 0.5 steps: how much damp filament hurts quality,
+  shown as 3 💧 with `drop()` full/half/empty, words via `moistureWord()`) and `glue`
+  (`{ textured, smooth }` = liquid glue needed on that PEI plate; `null` = follows the main material,
+  used for support). Keep the card to these two extras: no storage tips, fume/HDT/strength tables.
+- `moistureAdvice(material, inBox)` (js/materials.js) returns the one kid-friendly sentence for the
+  spool page, e.g. "PETG is moisture-sensitive: keep it in its dry box." (≥ 2 warns when not boxed).
+- `HELP_LINKS` in js/app.js (X2D manual PDF, Bambu Lab Wiki, Bambu Lab Academy) show on Learn and in
+  Settings, for kids too.
+- Inspiration from other people's guides: take the *idea*, write our own wording and values, never
+  copy text, layout or images, and don't commit their files. Still to do: an "X2D basics" Learn area (plates, nozzle sizes, two-nozzle feed paths, prime tower
+  vs purge, a tickable before/after-print checklist, first checks for common problems).
 - **Brand types (sub-cards)**, Bambu Lab only for now: `js/brands.js` loads SpoolmanDB's per-brand
   *source* file (one entry per product line, colours inside, ~60 KB, cached a week in IndexedDB) and
   groups lines under a Learn card via `learnFor(material)` or a note's `family`.

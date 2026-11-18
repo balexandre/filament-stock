@@ -5,6 +5,7 @@
 const LEARN = [
   {
     key: 'PLA', emoji: '🌽', level: 1, color: '#16a34a',
+    moisture: .5, glue: { textured: false, smooth: false },
     kid: 'The easy one. Made from plants — perfect for toys and models, but it goes soft in a hot car.',
     about: 'Polylactic acid. Prints easily, barely warps, comes in every colour and finish (matte, silk, glow, wood). Weak against heat (softens around 55–60 °C) and UV.',
     nozzle: '220 °C', nozzleRange: '200–230', bed: '55 °C', bedRange: '35–65',
@@ -18,6 +19,7 @@ const LEARN = [
   },
   {
     key: 'PETG', emoji: '🥤', level: 2, color: '#2563eb',
+    moisture: 2, glue: { textured: false, smooth: true },
     kid: 'Like a water bottle: tougher and bendier than PLA, but a bit stringy.',
     about: 'Tougher and more heat-resistant (~70 °C) than PLA, slightly flexible, good layer adhesion. Strings more and sticks very strongly to smooth PEI.',
     nozzle: '250 °C', nozzleRange: '240–260', bed: '70 °C', bedRange: '65–80',
@@ -31,6 +33,7 @@ const LEARN = [
   },
   {
     key: 'TPU', emoji: '🏀', level: 3, color: '#ea580c',
+    moisture: 3, glue: { textured: true, smooth: true },
     kid: 'Rubbery and squishy — phone cases, tyres and bouncy things. Print it slowly!',
     about: 'Flexible thermoplastic polyurethane (95A is the common hardness). Very tough, abrasion- and impact-resistant. Needs slow, steady extrusion.',
     nozzle: '230 °C', nozzleRange: '220–240', bed: '35 °C', bedRange: '30–45',
@@ -44,6 +47,7 @@ const LEARN = [
   },
   {
     key: 'ABS', emoji: '🧱', level: 4, color: '#dc2626',
+    moisture: 1, glue: { textured: false, smooth: true },
     kid: 'The LEGO brick plastic. Strong and heat-proof, but it smells — needs the door closed.',
     about: 'Heat-resistant (~95 °C), tough, sandable and vapour-smoothable. Shrinks while cooling, so it warps without a warm enclosure.',
     nozzle: '260 °C', nozzleRange: '250–280', bed: '90 °C', bedRange: '90–100',
@@ -57,6 +61,7 @@ const LEARN = [
   },
   {
     key: 'ASA', emoji: '☀️', level: 4, color: '#9333ea',
+    moisture: 1, glue: { textured: false, smooth: true },
     kid: 'ABS’s cousin that doesn’t fade in the sun. For things that live outside.',
     about: 'Like ABS but UV-stable: keeps colour and strength outdoors. Same warping and fume care as ABS.',
     nozzle: '260 °C', nozzleRange: '250–280', bed: '95 °C', bedRange: '90–100',
@@ -70,6 +75,7 @@ const LEARN = [
   },
   {
     key: 'PLA-CF', emoji: '🖤', level: 3, color: '#334155',
+    moisture: 1, glue: { textured: false, smooth: false },
     kid: 'PLA with tiny carbon threads — stiff and matte. Needs a special hard nozzle.',
     about: 'PLA filled with chopped carbon fibre: stiffer, lighter-looking, beautiful matte finish, hides layer lines. More brittle than plain PLA.',
     nozzle: '220 °C', nozzleRange: '210–240', bed: '55 °C', bedRange: '45–65',
@@ -83,6 +89,7 @@ const LEARN = [
   },
   {
     key: 'PETG-CF', emoji: '🛠️', level: 3, color: '#0f766e',
+    moisture: 2, glue: { textured: false, smooth: true },
     kid: 'Tough PETG with carbon threads. Strong, stiff and matte — hard nozzle only.',
     about: 'PETG with carbon fibre: stiffer and less stringy than PETG, keeps PETG’s toughness and ~70 °C heat resistance.',
     nozzle: '255 °C', nozzleRange: '240–270', bed: '70 °C', bedRange: '65–80',
@@ -96,6 +103,7 @@ const LEARN = [
   },
   {
     key: 'PA-CF', emoji: '⚙️', level: 5, color: '#78350f',
+    moisture: 3, glue: { textured: true, smooth: true },
     kid: 'Super-strong nylon with carbon — for real engineering parts. Grown-ups only!',
     about: 'Nylon (PA6/PA12/PAHT) with carbon fibre. Very strong, stiff and heat-resistant (>150 °C for PAHT-CF). Extremely moisture-hungry.',
     nozzle: '290 °C', nozzleRange: '260–300', bed: '100 °C', bedRange: '80–100',
@@ -109,6 +117,7 @@ const LEARN = [
   },
   {
     key: 'PC', emoji: '🛡️', level: 5, color: '#475569',
+    moisture: 2, glue: { textured: true, smooth: true },
     kid: 'Polycarbonate — the stuff of safety glasses. Very tough and needs lots of heat.',
     about: 'Very tough, impact- and heat-resistant (~115 °C). Warps a lot; needs a hot, closed chamber.',
     nozzle: '270 °C', nozzleRange: '260–280', bed: '100 °C', bedRange: '90–110',
@@ -122,6 +131,7 @@ const LEARN = [
   },
   {
     key: 'PVA', emoji: '💧', level: 4, color: '#0284c7',
+    moisture: 3, glue: null,
     kid: 'Magic support that melts away in water!',
     about: 'Water-soluble support (PVA / BVOH). Used only for support interfaces with PLA (or PETG for BVOH). Absorbs moisture extremely fast.',
     nozzle: '220 °C', nozzleRange: '210–230', bed: '55 °C', bedRange: '45–60',
@@ -134,6 +144,24 @@ const LEARN = [
     tips: ['Use it only for the interface layers to save money.', 'Dissolve in warm water, change the water once.'],
   },
 ];
+
+// ---- Moisture & glue helpers ----
+// moisture: 0–3, how much damp filament hurts print quality (0.5 = barely, 3 = always dry it first).
+function moistureWord(level) { return level >= 3 ? 'Very high' : level >= 2 ? 'High' : level >= 1 ? 'Medium' : 'Low'; }
+
+// One short, kid-friendly sentence for the spool page. `name` is the spool's material as written
+// on it (e.g. "PETG", "TPU 95A"); `inBox` = the spool sits in its own dry box.
+function moistureAdvice(material, inBox) {
+  const m = learnFor(material).moisture ?? 1;
+  const name = material || 'This filament';
+  if (m >= 2) return inBox
+    ? { level: m, tone: 'ok', text: `✅ ${name} is moisture-sensitive — good thing it’s in its dry box.` }
+    : { level: m, tone: 'warn', text: `💧 ${name} is moisture-sensitive: keep it in its dry box.` };
+  if (m >= 1) return { level: m, tone: 'info', text: inBox
+    ? `✅ ${name} is happy in its dry box.`
+    : `${name} can sit out for a while, but a dry box keeps it at its best.` };
+  return { level: m, tone: 'info', text: inBox ? `✅ ${name} is happy in its dry box.` : `👍 ${name} is fine on the shelf.` };
+}
 
 // Map any SpoolmanDB material string (PLA+, PA6-CF, PCTG, HTPLA+, …) to a Learn entry.
 function learnFor(material) {

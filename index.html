@@ -408,8 +408,11 @@
             <button type="submit" :disabled="!(+scale>0) || emptyW==='' || busy" class="w-full h-16 rounded-2xl bg-indigo-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xl font-extrabold shadow focus-ring">Save weight</button>
           </form>
 
-          <!-- its own dry box: switch + desiccant status -->
+          <!-- its own dry box: moisture advice + switch + desiccant status -->
           <div class="rounded-2xl p-4 bg-white dark:bg-slate-900 shadow-sm space-y-3">
+          <p class="text-sm font-semibold rounded-xl px-3 py-2"
+             :class="{ warn: 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200', ok: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200', info: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' }[moistureAdvice(current).tone]"
+             x-text="moistureAdvice(current).text"></p>
           <div class="flex items-center gap-3">
             <span class="text-3xl" aria-hidden="true">📦</span>
             <div class="flex-1 min-w-0">
@@ -630,6 +633,12 @@
         <div class="flex-1 min-w-[16rem]">
           <h1 class="text-2xl font-extrabold" x-text="simple ? 'Learn about plastics 🧪' : 'Materials'"></h1>
           <p class="text-slate-500 text-sm">Settings for the <b>Bambu Lab X2D</b>, 0.4 mm nozzle. Starting points — fine-tune in Bambu Studio.</p>
+          <p class="mt-2 flex flex-wrap gap-2 text-sm" aria-label="More help">
+            <template x-for="h in HELP_LINKS" :key="h.url">
+              <a :href="h.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 shadow-sm font-semibold focus-ring hover:shadow-md"
+                 :title="h.note"><span aria-hidden="true" x-text="h.icon"></span><span x-text="h.label"></span><span class="text-slate-400" aria-hidden="true">↗</span></a>
+            </template>
+          </p>
         </div>
         <a href="#/cards" class="no-print btn-outline">🖨️ Print all cards</a>
       </div>
@@ -639,7 +648,8 @@
             <div class="flex items-center gap-3"><span class="text-4xl" aria-hidden="true" x-text="m.emoji"></span>
               <div><div class="text-xl font-extrabold" x-text="m.key"></div>
                 <div class="text-sm" :aria-label="'Difficulty ' + m.level + ' of 5'"><span aria-hidden="true" class="text-indigo-600 dark:text-indigo-400" x-text="'●'.repeat(m.level)"></span><span aria-hidden="true" class="text-slate-300 dark:text-slate-600" x-text="'○'.repeat(5-m.level)"></span>
-                  <span class="text-slate-500" x-text="['','Super easy','Easy','Medium','Tricky','Expert'][m.level]"></span></div></div></div>
+                  <span class="text-slate-500" x-text="['','Super easy','Easy','Medium','Tricky','Expert'][m.level]"></span></div>
+                <div class="text-sm flex items-center gap-1"><span class="drops" role="img" :aria-label="'Moisture sensitivity: ' + moistureWord(m.moisture) + ', ' + m.moisture + ' of 3'"><template x-for="i in [0,1,2]" :key="i"><span :class="'drop-' + drop(m.moisture, i)" aria-hidden="true">💧</span></template></span><span class="text-slate-500" x-text="moistureWord(m.moisture) + ' moisture'"></span></div></div></div>
             <p class="mt-3 text-slate-600 dark:text-slate-300" x-text="m.kid"></p>
             <p x-show="linesFor(m.key).length" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                x-text="`Bambu Lab · ${linesFor(m.key).length} type${linesFor(m.key).length === 1 ? '' : 's'}`"></p>
@@ -681,6 +691,9 @@
                   <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Top / bottom</th><td class="text-right" x-text="c.tb"></td></tr>
                   <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Infill</th><td class="text-right" x-text="c.infill"></td></tr>
                   <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Dry</th><td class="text-right" x-text="c.dry"></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Moisture</th>
+                    <td class="text-right"><span class="inline-flex items-center gap-1"><span class="drops" role="img" :aria-label="'Moisture sensitivity: ' + moistureWord(c.moisture) + ', ' + c.moisture + ' of 3'"><template x-for="i in [0,1,2]" :key="i"><span :class="'drop-' + drop(c.moisture, i)" aria-hidden="true">💧</span></template></span><span x-text="moistureWord(c.moisture)"></span></span></td></tr>
+                  <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Liquid glue</th><td class="text-right" x-text="glueText(c.glue)"></td></tr>
                   <tr><th scope="row" class="text-left py-1 pr-2 font-semibold align-top">Feed from</th><td class="text-right" x-text="c.feed"></td></tr>
                   <tr x-show="c.hardened"><th scope="row" class="text-left py-1 pr-2 font-semibold">Nozzle type</th><td class="text-right font-bold text-red-700">⚠️ Hardened steel</td></tr>
                 </tbody>
@@ -813,6 +826,17 @@
           <input x-model="newSpot" maxlength="40" placeholder="New shared dry box (optional)" class="field" aria-label="New shared dry box name">
           <button class="btn-outline shrink-0">➕ Add</button>
         </form>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-2">
+        <h2 class="font-bold" x-text="simple ? 'Need help? 🙋' : 'X2D help'"></h2>
+        <ul class="space-y-1">
+          <template x-for="h in HELP_LINKS" :key="h.url">
+            <li><a :href="h.url" target="_blank" rel="noopener" class="flex items-center gap-2 min-h-11 py-1 rounded-lg focus-ring">
+              <span class="text-xl" aria-hidden="true" x-text="h.icon"></span>
+              <span><span class="link font-semibold" x-text="h.label"></span> <span class="text-sm text-slate-500" x-text="'· ' + h.note"></span></span></a></li>
+          </template>
+        </ul>
       </div>
 
       <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-2">

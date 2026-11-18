@@ -42,6 +42,12 @@ html.simple { font-size: 18px; } /* everything is rem-based, so this scales the 
 .led-low   { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
 .led-empty, .led-off { background: #4b5563; }
 
+/* moisture drops (3 per rating, half = 0.5 step) */
+.drops { display: inline-flex; gap: 1px; font-size: .85em; line-height: 1; }
+.drop-full { opacity: 1; }
+.drop-half { opacity: .45; }
+.drop-empty { opacity: .15; filter: grayscale(1); }
+
 .theme-btn { width: 2.75rem; height: 2.75rem; border-radius: 9999px; display: grid; place-items: center;
              border: 2px solid #cbd5e1; color: #334155; background: transparent; flex-shrink: 0; }
 .theme-btn:hover { background: rgba(99,102,241,.08); }

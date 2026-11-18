@@ -44,6 +44,11 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 - **📘 Learn:** 10 materials (PLA, PETG, TPU, ABS, ASA, PLA-CF, PETG-CF, PA-CF, PC, PVA) with X2D
   starting settings: temperatures, speed, flow, walls, infill, drying and which AMS to use.
   Each prints as an **A6 card**, four per A4 sheet, ready to laminate. Learn works without logging in.
+- **💧 Moisture & glue:** every material shows how sensitive it is to damp (💧 to 💧💧💧) and
+  whether to put liquid glue on a Textured or Smooth PEI plate. On a spool's page, a short line
+  says what to do, for example *"PETG is moisture-sensitive: keep it in its dry box."*
+- **🙋 Help links:** the X2D manual, the Bambu Lab Wiki and Bambu Lab Academy, on the Learn page
+  and in Settings.
 - **🧪 Bambu Lab types:** every material page lists Bambu Lab's product lines, for example
   18 kinds of PLA (Basic, Matte, Silk+, Metal, Glow, Gradient, Aero…). Each shows its colours,
   what makes it different, its own temperatures (flagged when they differ from the card), and
