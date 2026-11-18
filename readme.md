@@ -44,6 +44,11 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 - **📘 Learn:** 10 materials (PLA, PETG, TPU, ABS, ASA, PLA-CF, PETG-CF, PA-CF, PC, PVA) with X2D
   starting settings: temperatures, speed, flow, walls, infill, drying and which AMS to use.
   Each prints as an **A6 card**, four per A4 sheet, ready to laminate. Learn works without logging in.
+- **🧪 Bambu Lab types:** every material page lists Bambu Lab's product lines, for example
+  18 kinds of PLA (Basic, Matte, Silk+, Metal, Glow, Gradient, Aero…). Each shows its colours,
+  what makes it different, its own temperatures (flagged when they differ from the card), and
+  whether it needs a hardened nozzle. The data comes from SpoolmanDB's Bambu Lab list. A spool's
+  "How do I print with this?" button jumps straight to its type.
 - **🧒 Simple mode:** bigger text and plain words ("plastic left", "beads are tired"). It's always
   on for kid accounts, and adults can toggle it.
 - **🌗 Theme:** one button cycles **System → Light → Dark**, remembered per device.
@@ -112,6 +117,8 @@ js/config.js            Supabase URL + publishable key, public site URL
 js/api.js               every Supabase call (+ the SpoolmanDB GitHub check)
 js/catalog.js           SpoolmanDB download, IndexedDB cache, search
 js/materials.js         Learn content and X2D settings per material
+js/brands.js            brand product lines from SpoolmanDB source files (Learn sub-cards)
+js/brand-notes.js       curated names + "how it differs" notes per brand product line
 js/app.js               the Alpine component: state, routing, actions, theme
 supabase/schema.sql     tables, views, RLS, triggers, RPCs (idempotent)
 favicon.svg, icons/     app icon (SVG + PNGs for home screens)

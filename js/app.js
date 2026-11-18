@@ -58,6 +58,7 @@ document.addEventListener('alpine:init', () => {
     drySpots: [], newSpot: '',
     dry: { open: false, spot: null, spool: null, title: '', action: 'replaced', humidity: '', note: '', busy: false, history: [] },
     upstream: null, upstreamErr: '',
+    lines: [], linesState: 'idle', lineFocus: null,
 
     LEARN, SLOTS,
 
@@ -168,7 +169,14 @@ document.addEventListener('alpine:init', () => {
       this.route = name || 'home';
       this.param = rest.length ? decodeURIComponent(rest.join('/')) : null;
       window.scrollTo(0, 0);
-      if (this.route === 'learn') this.card = this.param ? (LEARN.find(l => l.key === this.param.toUpperCase()) || null) : null;
+      if (this.route === 'learn') {
+        // #/learn/PLA or #/learn/PLA/pla-matte (a brand product line inside the material)
+        const [key, line] = (this.param || '').split('/');
+        this.card = key ? (LEARN.find(l => l.key === key.toUpperCase()) || null) : null;
+        this.lineFocus = line || null;
+        this.loadLines();
+        this.focusLine();
+      }
       if (this.isPublic || !this.ready) return;
       this.load();
     },
@@ -176,7 +184,7 @@ document.addEventListener('alpine:init', () => {
       switch (this.route) {
         case 'home': this.loadSpools(); this.loadShop(); this.loadDry(); break;
         case 'pick': this.loadSpools(); break;
-        case 's': this.openSpool(this.param); if (!this.drySpots.length) this.loadDry(); break;
+        case 's': this.openSpool(this.param); if (!this.drySpots.length) this.loadDry(); this.loadLines(); break;
         case 'edit': this.openSpool(this.param, true); break;
         case 'add': this.add = freshAdd(); this.loadCatalog(); this.loadDry(); break;
         case 'labels':
@@ -456,6 +464,46 @@ document.addEventListener('alpine:init', () => {
         await api.addDrySpot({ name, kind: 'box', interval_days: 30, sort: Math.max(0, ...this.drySpots.map(d => d.sort)) + 1 });
         this.newSpot = ''; this.showToast(`${name} added 📦`); this.loadDry();
       } catch (e) { this.fail(e); }
+    },
+
+    // ---------- brand product lines (Learn sub-cards) ----------
+    async loadLines() {
+      if (this.linesState === 'ready' || this.linesState === 'loading') return;
+      this.linesState = 'loading';
+      try { this.lines = await Brands.load(); this.linesState = 'ready'; this.focusLine(); }
+      catch (e) { console.error(e); this.linesState = 'error'; }
+    },
+    linesFor(key) { return key ? this.lines.filter(l => l.family === key) : []; },
+    colourCount(key) { return this.linesFor(key).reduce((n, l) => n + l.colors.length, 0); },
+    focusLine() {
+      if (!this.lineFocus || this.linesState !== 'ready') return;
+      // instant jump when arriving from a link; wait a frame so the x-for has rendered the cards
+      this.$nextTick(() => requestAnimationFrame(() =>
+        document.getElementById('line-' + this.lineFocus)?.scrollIntoView({ block: 'center' })));
+    },
+    // the product line a spool belongs to (SpoolmanDB names are the line's template filled with the colour)
+    lineFor(s) {
+      if (!s) return null;
+      return this.lines.find(l => l.brand === s.brand && l.material === s.material &&
+        l.colors.some(c => l.template.replace('{color_name}', c.name) === s.name)) || null;
+    },
+    learnLink(s) { const l = this.lineFor(s); return '#/learn/' + (l ? l.family + '/' + l.id : learnFor(s.material).key); },
+    learnLabel(s) { const l = this.lineFor(s); return l ? l.label : learnFor(s.material).key; },
+    // difference between a line's SpoolmanDB temperature and the family card baseline
+    tempDiff(l, which) {
+      const base = parseInt((LEARN.find(c => c.key === l.family) || {})[which], 10);
+      const v = l[which];
+      return v == null || isNaN(base) ? 0 : v - base;
+    },
+    lineSwatch(c) {
+      return c.hexes && c.hexes.length > 1
+        ? `background:linear-gradient(135deg, ${c.hexes.map(h => '#' + h.slice(0, 6)).join(', ')})`
+        : `background:#${c.hex}`;
+    },
+    async refreshCatalogs() {
+      await this.loadCatalog(true);
+      try { this.lines = await Brands.load(true); this.linesState = 'ready'; } catch { /* keep cached */ }
+      this.showToast('Catalogue updated ✅');
     },
 
     // ---------- SpoolmanDB upstream ----------

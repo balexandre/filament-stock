@@ -86,6 +86,7 @@ const Catalog = (() => {
 
   return {
     load, search,
+    kvGet: idbGet, kvSet: idbSet, // shared IndexedDB cache (js/brands.js uses it too)
     get count() { return items ? items.length : 0; },
     async cachedAt() { const c = await idbGet(KEY); return c ? c.ts : null; },
   };

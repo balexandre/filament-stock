@@ -17,6 +17,8 @@
   <script src="js/api.js"></script>
   <script src="js/catalog.js"></script>
   <script src="js/materials.js"></script>
+  <script src="js/brand-notes.js"></script>
+  <script src="js/brands.js"></script>
   <script src="js/app.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="css/app.css">
@@ -433,8 +435,8 @@
           </div>
           </div>
 
-          <a :href="'#/learn/' + learnFor(current.material).key" class="flex items-center justify-center gap-2 w-full h-14 rounded-2xl border-2 border-slate-200 dark:border-slate-700 font-bold focus-ring"
-             x-text="(simple ? '📘 How do I print with ' : '📘 X2D settings for ') + learnFor(current.material).key + '?'"></a>
+          <a :href="learnLink(current)" class="flex items-center justify-center gap-2 w-full h-14 rounded-2xl border-2 border-slate-200 dark:border-slate-700 font-bold focus-ring"
+             x-text="(simple ? '📘 How do I print with ' : '📘 X2D settings for ') + learnLabel(current) + '?'"></a>
 
           <div x-show="!simple" class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm">
             <div class="flex flex-wrap gap-2">
@@ -639,6 +641,8 @@
                 <div class="text-sm" :aria-label="'Difficulty ' + m.level + ' of 5'"><span aria-hidden="true" class="text-indigo-600 dark:text-indigo-400" x-text="'●'.repeat(m.level)"></span><span aria-hidden="true" class="text-slate-300 dark:text-slate-600" x-text="'○'.repeat(5-m.level)"></span>
                   <span class="text-slate-500" x-text="['','Super easy','Easy','Medium','Tricky','Expert'][m.level]"></span></div></div></div>
             <p class="mt-3 text-slate-600 dark:text-slate-300" x-text="m.kid"></p>
+            <p x-show="linesFor(m.key).length" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+               x-text="`Bambu Lab · ${linesFor(m.key).length} type${linesFor(m.key).length === 1 ? '' : 's'}`"></p>
           </a>
         </template>
       </div>
@@ -697,7 +701,47 @@
             <template x-for="t in (card?.tips || [])" :key="t"><li x-text="t"></li></template>
           </ul>
           <p class="text-sm text-slate-500">The card prints at A6 — four fit on an A4 sheet and a standard laminating pouch.</p>
+          <a x-show="linesFor(card?.key).length" href="#bambu-types" @click.prevent="document.getElementById('bambu-types').scrollIntoView({ behavior: 'smooth' })"
+             class="btn-outline" x-text="`🧪 ${linesFor(card?.key).length} Bambu Lab ${card?.key} types ↓`"></a>
         </aside>
+      </div>
+
+      <!-- Brand product lines (sub-cards), from SpoolmanDB's Bambu Lab source file -->
+      <div x-show="route==='learn' && card" id="bambu-types" class="no-print pt-4 space-y-3 scroll-mt-20">
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <h2 class="text-2xl font-extrabold" x-text="simple ? `Kinds of Bambu Lab ${card?.key}` : `Bambu Lab ${card?.key} types`"></h2>
+          <span class="text-sm text-slate-500"
+                x-text="linesState === 'ready' ? `${linesFor(card?.key).length} types · ${colourCount(card?.key)} colours` : linesState === 'error' ? 'Couldn’t load SpoolmanDB' : 'Loading from SpoolmanDB…'"></span>
+        </div>
+        <p x-show="!simple" class="text-sm text-slate-500">Types and colours come from SpoolmanDB’s Bambu Lab list. Temperatures are the ones SpoolmanDB lists for each type; the card above is the family baseline. Chips show where a type differs from it.</p>
+        <p x-show="linesState === 'ready' && !linesFor(card?.key).length" class="text-sm text-slate-500">Bambu Lab doesn’t list a separate type for this material.</p>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="l in linesFor(card?.key)" :key="l.id">
+            <article :id="'line-' + l.id" class="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm space-y-2 scroll-mt-24 transition"
+                     :class="lineFocus === l.id && 'ring-4 ring-indigo-400'">
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="font-extrabold leading-tight" x-text="l.label"></h3>
+                <span class="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800" x-text="l.colors.length + ' colour' + (l.colors.length === 1 ? '' : 's')"></span>
+              </div>
+              <div class="flex flex-wrap gap-1" role="img" :aria-label="l.colors.length + ' colours, including ' + l.colors.slice(0, 3).map(c => c.name).join(', ')">
+                <template x-for="c in l.colors.slice(0, 16)" :key="c.name">
+                  <span class="w-5 h-5 rounded-full ring-1 ring-slate-300 dark:ring-slate-600" :style="lineSwatch(c)" :title="c.name"></span>
+                </template>
+                <span x-show="l.colors.length > 16" class="text-xs text-slate-500 self-center" x-text="'+' + (l.colors.length - 16)"></span>
+              </div>
+              <p class="text-sm text-slate-700 dark:text-slate-300"
+                 x-text="(simple ? (l.kid || l.blurb) : l.blurb) || `Prints like the ${l.family} card; check the temperatures below.`"></p>
+              <div class="flex flex-wrap gap-1.5 text-xs font-semibold">
+                <span x-show="l.nozzle" class="px-2 py-1 rounded-lg" :class="Math.abs(tempDiff(l, 'nozzle')) >= 10 ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100' : 'bg-slate-100 dark:bg-slate-800'"
+                      x-text="'🔥 ' + l.nozzle + ' °C' + (Math.abs(tempDiff(l, 'nozzle')) >= 10 ? ' (' + (tempDiff(l, 'nozzle') > 0 ? '+' : '') + tempDiff(l, 'nozzle') + ')' : '')"></span>
+                <span x-show="l.bed" class="px-2 py-1 rounded-lg" :class="Math.abs(tempDiff(l, 'bed')) >= 10 ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100' : 'bg-slate-100 dark:bg-slate-800'"
+                      x-text="'🛏️ ' + l.bed + ' °C' + (Math.abs(tempDiff(l, 'bed')) >= 10 ? ' (' + (tempDiff(l, 'bed') > 0 ? '+' : '') + tempDiff(l, 'bed') + ')' : '')"></span>
+                <span x-show="l.hardened" class="px-2 py-1 rounded-lg bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200">⚠️ Hardened nozzle</span>
+                <template x-for="t in l.tags" :key="t"><span class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200" x-text="t"></span></template>
+              </div>
+            </article>
+          </template>
+        </div>
       </div>
     </section>
 
@@ -798,7 +842,7 @@
         <p x-show="catalogStale" class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200 text-sm">🆕 SpoolmanDB has changed since your copy — refresh to get the newest filaments.</p>
         <p x-show="upstream && catalogTs && !catalogStale" class="text-sm text-emerald-700 dark:text-emerald-300">✅ Your copy is up to date.</p>
         <div class="flex flex-wrap gap-2">
-          <button @click="loadCatalog(true).then(() => showToast('Catalogue updated ✅'))" class="btn-outline"
+          <button @click="refreshCatalogs()" class="btn-outline"
                   :class="catalogStale && 'border-indigo-600 bg-indigo-600 text-white'" x-text="catalog.state==='loading' ? 'Downloading…' : 'Refresh now'"></button>
           <a href="https://github.com/Donkie/SpoolmanDB/commits/main/filaments" target="_blank" rel="noopener" class="btn-outline">📜 Recent changes ↗</a>
         </div>

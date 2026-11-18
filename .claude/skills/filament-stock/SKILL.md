@@ -22,8 +22,9 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 - **Supabase** for auth + data. Only the project URL and the **publishable/anon** key live in
   `js/config.js` (public by design); every table has Row Level Security. Never commit a
   `service_role` / `sb_secret_…` key.
-- **SpoolmanDB** (`https://donkie.github.io/SpoolmanDB/filaments.json`) is the only catalogue of
-  brands/filaments. Don't invent a catalogue table.
+- **SpoolmanDB** is the only catalogue of brands/filaments. Don't invent a catalogue table.
+  The compiled `filaments.json` feeds "Add spool"; the per-brand **source** files
+  (`raw.githubusercontent.com/Donkie/SpoolmanDB/main/filaments/<brand>.json`) feed Learn.
 
 ## Domain words
 
@@ -142,6 +143,18 @@ the UI must cope with the signup endpoint returning an error.
   volumetric flow, walls, top/bottom layers, infill pattern + %, drying temp/time, which AMS
   (AMS 2 Pro vs AMS HT vs external spool), hardened nozzle required?
 - Values are **starting points** based on Bambu Studio generic profiles; label them as such.
+- **Brand types (sub-cards)**, Bambu Lab only for now: `js/brands.js` loads SpoolmanDB's per-brand
+  *source* file (one entry per product line, colours inside, ~60 KB, cached a week in IndexedDB) and
+  groups lines under a Learn card via `learnFor(material)` or a note's `family`.
+  `js/brand-notes.js` adds curated names and short "how it differs" text, matched with
+  `match(entry)`. Every note must match exactly one entry, and unmatched entries still show with
+  a derived name, so new upstream lines never disappear. Only write notes you're sure of.
+  To add a brand: add it to `SOURCES` and, optionally, a `BRAND_NOTES.<key>` list.
+- A spool maps to its line when `line.template` with a colour name equals `spool.name` (same brand
+  and material); `#/learn/<FAMILY>/<line-id>` scrolls to and highlights that line. All 302 Bambu
+  1.75 mm catalogue entries map.
+- Gotcha: top-level `const` in a classic script is **not** a `window` property, so reference
+  `BRAND_NOTES` directly (`typeof BRAND_NOTES !== 'undefined'`), never `window.BRAND_NOTES`.
 - `@media print` stylesheet renders cards at A6 (four per A4, `#/cards` prints them all),
   high contrast, QR on the card linking back to the Learn page. `learnFor(material)` maps any
   SpoolmanDB material string (PLA+, PA6-CF, PCTG…) to a Learn entry.

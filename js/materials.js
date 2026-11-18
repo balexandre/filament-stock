@@ -143,7 +143,7 @@ function learnFor(material) {
   const fibre = /CF|GF/.test(m);
   if (/^(PVA|BVOH)/.test(m)) return byKey('PVA');
   if (/^(TPU|TPE|PEBA)/.test(m)) return byKey('TPU');
-  if (/^(PA|PPA|NYLON)/.test(m)) return byKey('PA-CF');
+  if (/^(PA|PPA|PPS|NYLON)/.test(m)) return byKey('PA-CF'); // nylon + high-temp engineering
   if (/^(PETG|PET|PCTG|CPE|HTPET)/.test(m)) return byKey(fibre ? 'PETG-CF' : 'PETG');
   if (/^ASA|EASYASA/.test(m)) return byKey('ASA');
   if (/^(ABS|HIPS)/.test(m)) return byKey('ABS');
