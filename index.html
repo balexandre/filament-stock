@@ -322,6 +322,13 @@
     <!-- ===================== PICK A SPOOL ===================== -->
     <section x-show="route==='pick'" class="space-y-4">
       <h1 class="text-2xl font-extrabold" x-text="simple ? 'Which colour did you use?' : 'Pick a spool'"></h1>
+      <p x-show="loadingSpools && !spools.length" class="text-slate-500" role="status">Loading spools…</p>
+      <div x-show="!loadingSpools && !spools.length" class="text-center p-10 bg-white dark:bg-slate-900 rounded-2xl">
+        <div class="text-5xl" aria-hidden="true">📦</div>
+        <p class="mt-2 font-semibold" x-text="simple ? 'No rolls yet — add one first!' : 'No spools yet, so there’s nothing to log usage on.'"></p>
+        <a href="#/add" class="inline-block mt-3 h-12 px-6 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold focus-ring"
+           x-text="simple ? '➕ New roll arrived' : '➕ Add your first spool'"></a>
+      </div>
       <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
         <template x-for="s in pickList" :key="s.id">
           <a :href="'#/s/' + s.code" class="p-3 rounded-2xl bg-white dark:bg-slate-900 shadow-sm text-center focus-ring hover:shadow-md"
@@ -589,6 +596,11 @@
         <button @click="labelSel = labelSel.length ? [] : spools.map(s=>s.code)" class="btn-outline" x-text="labelSel.length ? 'Select none' : 'Select all'"></button>
         <button @click="window.print()" :disabled="!labelSel.length" class="h-12 px-5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold disabled:opacity-50" x-text="`🖨️ Print ${labelSel.length}`"></button>
       </div>
+      <div x-show="!loadingSpools && !spools.length" class="no-print text-center p-10 bg-white dark:bg-slate-900 rounded-2xl">
+        <div class="text-5xl" aria-hidden="true">🏷️</div>
+        <p class="mt-2 font-semibold">No spools yet, so there are no labels to print.</p>
+        <a href="#/add" class="inline-block mt-3 h-12 px-6 leading-[3rem] rounded-xl bg-indigo-600 text-white font-bold focus-ring">➕ Add your first spool</a>
+      </div>
       <div class="label-sheet grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         <template x-for="s in spools" :key="s.id">
           <label class="label-item relative bg-white text-slate-900 rounded-2xl p-3 shadow-sm border-2 cursor-pointer"
@@ -630,7 +642,8 @@
     <!-- ===================== LEARN ===================== -->
     <section x-show="route==='learn' && !param" class="space-y-4">
       <div class="flex flex-wrap items-end gap-3">
-        <div class="flex-1 min-w-[16rem]">
+        <!-- full width on phones so the help links stay on one line; "Print all cards" wraps below -->
+        <div class="flex-1 basis-full md:basis-0 min-w-[16rem]">
           <h1 class="text-2xl font-extrabold" x-text="simple ? 'Learn about plastics 🧪' : 'Materials'"></h1>
           <p class="text-slate-500 text-sm">Settings for the <b>Bambu Lab X2D</b>, 0.4 mm nozzle. Starting points — fine-tune in Bambu Studio.</p>
           <p class="mt-2 flex flex-wrap gap-2 text-sm" aria-label="More help">
@@ -638,6 +651,20 @@
               <a :href="h.url" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 shadow-sm font-semibold focus-ring hover:shadow-md"
                  :title="h.note"><span aria-hidden="true" x-text="h.icon"></span><span x-text="h.label"></span><span class="text-slate-400" aria-hidden="true">↗</span></a>
             </template>
+          </p>
+          <!-- Learn more about the X2D: link to the community guide instead of rebuilding it -->
+          <a :href="X2D_GUIDE.url" target="_blank" rel="noopener"
+             class="mt-3 flex items-center gap-3 p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950 border-2 border-indigo-200 dark:border-indigo-800 hover:shadow-md focus-ring">
+            <span class="text-3xl" aria-hidden="true">🧭</span>
+            <span class="flex-1 min-w-0">
+              <span class="block font-bold text-slate-900 dark:text-white">Learn more about the X2D ↗</span>
+              <span class="block text-sm text-slate-600 dark:text-slate-300"
+                    x-text="simple ? 'Plates, nozzles, drying and fixing problems: the X2D Quick Guide.' : 'Build plates, nozzle sizes, two-nozzle feed paths, drying and first checks: the X2D Quick Guide.'"></span>
+            </span>
+          </a>
+          <p class="mt-1 text-xs text-slate-500">
+            ✨ By <span x-text="X2D_GUIDE.by"></span>, and the inspiration for this Learn area
+            (<a :href="X2D_GUIDE.repo" target="_blank" rel="noopener" class="link">GitHub ↗</a>).
           </p>
         </div>
         <a href="#/cards" class="no-print btn-outline">🖨️ Print all cards</a>
@@ -836,6 +863,9 @@
               <span class="text-xl" aria-hidden="true" x-text="h.icon"></span>
               <span><span class="link font-semibold" x-text="h.label"></span> <span class="text-sm text-slate-500" x-text="'· ' + h.note"></span></span></a></li>
           </template>
+          <li><a :href="X2D_GUIDE.url" target="_blank" rel="noopener" class="flex items-center gap-2 min-h-11 py-1 rounded-lg focus-ring">
+            <span class="text-xl" aria-hidden="true">🧭</span>
+            <span><span class="link font-semibold">X2D Quick Guide</span> <span class="text-sm text-slate-500" x-text="'· learn more about the X2D, by ' + X2D_GUIDE.by"></span></span></a></li>
         </ul>
       </div>
 

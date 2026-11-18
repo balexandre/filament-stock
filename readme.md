@@ -49,6 +49,9 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
   says what to do, for example *"PETG is moisture-sensitive: keep it in its dry box."*
 - **🙋 Help links:** the X2D manual, the Bambu Lab Wiki and Bambu Lab Academy, on the Learn page
   and in Settings.
+- **🧭 Learn more about the X2D:** for build plates, nozzle sizes, two-nozzle feed paths, drying
+  and first checks, Learn points to the community
+  [X2D Quick Guide](https://gwarez-bzh.github.io/x2d-quick-guide/) instead of repeating it.
 - **🧪 Bambu Lab types:** every material page lists Bambu Lab's product lines, for example
   18 kinds of PLA (Basic, Matte, Silk+, Metal, Glow, Gradient, Aero…). Each shows its colours,
   what makes it different, its own temperatures (flagged when they differ from the card), and
@@ -59,6 +62,13 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 - **🌗 Theme:** one button cycles **System → Light → Dark**, remembered per device.
 - **📱 Installable:** add it to your phone's home screen; it has its own icon and opens in its own
   window.
+
+## Credits
+
+- Filament data: [SpoolmanDB](https://github.com/Donkie/SpoolmanDB) by Donkie.
+- The Learn area was inspired by the
+  [X2D Quick Guide](https://gwarez-bzh.github.io/x2d-quick-guide/) by Gwarez-BZH
+  ([GitHub](https://github.com/Gwarez-BZH/x2d-quick-guide)).
 
 ## Setup
 

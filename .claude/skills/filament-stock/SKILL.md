@@ -127,10 +127,12 @@ the UI must cope with the signup endpoint returning an error.
    System → Light → Dark, stored per device in `localStorage` (`fs.theme`). `applyTheme()` in
    `js/app.js` runs in `<head>` and sets `html.dark` + `color-scheme`, so there's no flash.
    Custom CSS targets `html.dark …`, never `@media (prefers-color-scheme)`.
-8. **Sanity checks, friendly tone:** logging more than what's left → "That's more than the
+8. **No blank screens:** every list (home, pick, labels, shop, dry boxes…) needs a loading line and an
+   empty state that says why it's empty and links to the next step (usually `#/add`).
+9. **Sanity checks, friendly tone:** logging more than what's left → "That's more than the
    spool has left (212 g). Use 212 g and mark it empty?"
-9. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
-10. **Look:** the AMS cards copy the X2D wood-cabinet model (dark `#34363b` body, smoked lid,
+10. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
+11. **Look:** the AMS cards copy the X2D wood-cabinet model (dark `#34363b` body, smoked lid,
     slot LEDs) at real proportions (AMS 2 Pro 372 mm, AMS HT 200 mm). The app icon is
     `favicon.svg` (indigo `#4f46e5` tile, white spool + strand), also used as the in-app logo;
     PNGs in `icons/` and `manifest.webmanifest` for home screens.
@@ -152,8 +154,13 @@ the UI must cope with the signup endpoint returning an error.
 - `HELP_LINKS` in js/app.js (X2D manual PDF, Bambu Lab Wiki, Bambu Lab Academy) show on Learn and in
   Settings, for kids too.
 - Inspiration from other people's guides: take the *idea*, write our own wording and values, never
-  copy text, layout or images, and don't commit their files. Still to do: an "X2D basics" Learn area (plates, nozzle sizes, two-nozzle feed paths, prime tower
-  vs purge, a tickable before/after-print checklist, first checks for common problems).
+  copy text, layout or images, and don't commit their files. Credit the source: the Learn header and the
+  readme's Credits section link the [X2D Quick Guide](https://github.com/Gwarez-BZH/x2d-quick-guide)
+  by Gwarez-BZH, which inspired the moisture/glue rows.
+- **Don't build an "X2D basics" area** (plates, nozzle sizes, feed paths, prime tower, drying,
+  troubleshooting). Learn links to the X2D Quick Guide for that instead ("Learn more about the X2D"
+  card on Learn, plus an entry in Settings → help; URLs in `X2D_GUIDE` in js/app.js). Our Learn stays
+  focused on materials, Bambu types, moisture and glue.
 - **Brand types (sub-cards)**, Bambu Lab only for now: `js/brands.js` loads SpoolmanDB's per-brand
   *source* file (one entry per product line, colours inside, ~60 KB, cached a week in IndexedDB) and
   groups lines under a Learn card via `learnFor(material)` or a note's `family`.

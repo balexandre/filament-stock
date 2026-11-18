@@ -61,6 +61,8 @@ document.addEventListener('alpine:init', () => {
     lines: [], linesState: 'idle', lineFocus: null,
 
     LEARN, SLOTS,
+    // community X2D guide we link to instead of building our own "X2D basics" (it inspired Learn)
+    X2D_GUIDE: { url: 'https://gwarez-bzh.github.io/x2d-quick-guide/', repo: 'https://github.com/Gwarez-BZH/x2d-quick-guide', by: 'Gwarez-BZH' },
     // official X2D help (shown on Learn and in Settings)
     HELP_LINKS: [
       { icon: '📕', label: 'X2D manual', note: 'PDF', url: 'https://csm.bblcdn.com/hub/7c58718aaa2e40edab56efb87419a96a.pdf' },
