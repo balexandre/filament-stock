@@ -194,9 +194,11 @@ the UI must cope with the signup endpoint returning an error.
   readme's Credits section link the [X2D Quick Guide](https://github.com/Gwarez-BZH/x2d-quick-guide)
   by Gwarez-BZH, which inspired the moisture/glue rows.
 - **Don't build an "X2D basics" area** (plates, nozzle sizes, feed paths, prime tower, drying,
-  troubleshooting). Learn links to the X2D Quick Guide for that instead ("Learn more about the X2D"
-  card on Learn, plus an entry in Settings → help; URLs in `X2D_GUIDE` in js/app.js). Our Learn stays
-  focused on materials, Bambu types, moisture and glue.
+  troubleshooting). Learn links to the X2D Quick Guide for that instead ("🧭 Learn more about the X2D"
+  chip, first in Learn's help-links row with the credit line below it, plus an entry in Settings → help; URLs in `X2D_GUIDE` in js/app.js). Our Learn stays
+  focused on materials, Bambu types, moisture and glue. Learn header layout: title + "Print all
+  cards" on one row, then one row of help chips, the credit line, a divider, and "Pick a material"
+  above the grid. Keep the links quiet; the materials are the point of the page.
 - **Brand types (sub-cards)**, Bambu Lab only for now: `js/brands.js` loads SpoolmanDB's per-brand
   *source* file (one entry per product line, colours inside, ~60 KB, cached a week in IndexedDB) and
   groups lines under a Learn card via `learnFor(material)` or a note's `family`.

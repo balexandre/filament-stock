@@ -11,6 +11,12 @@
 
 <p align="center">
   <a href="https://balexandre.github.io/filament-stock/"><b>Open the app →</b></a>
+  &nbsp;·&nbsp;
+  <a href="screenshots.md"><b>See screenshots</b></a>
+</p>
+
+<p align="center">
+  <a href="screenshots.md"><img src="docs/screenshots/stock.png" alt="Stock screen: AMS 2 Pro and AMS HT cards and the spool list" width="720"></a>
 </p>
 
 A static site (Tailwind + Alpine.js, no build step) on GitHub Pages. Login and data live in
@@ -67,7 +73,7 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 - **🙋 Help links:** the X2D manual, the Bambu Lab Wiki and Bambu Lab Academy, on the Learn page
   and in Settings.
 - **🧭 Learn more about the X2D:** for build plates, nozzle sizes, two-nozzle feed paths, drying
-  and first checks, Learn points to the community
+  and first checks, a chip next to Learn's help links points to the community
   [X2D Quick Guide](https://gwarez-bzh.github.io/x2d-quick-guide/) instead of repeating it.
 - **🧪 Bambu Lab types:** every material page lists Bambu Lab's product lines, for example
   18 kinds of PLA (Basic, Matte, Silk+, Metal, Glow, Gradient, Aero…). Each shows its colours,
@@ -156,6 +162,7 @@ supabase/schema.sql     tables, views, RLS, triggers, RPCs (idempotent)
 favicon.svg, icons/     app icon (SVG + PNGs for home screens)
 manifest.webmanifest    install-to-home-screen metadata
 mockup/                 the original clickable mockup (fake data)
+screenshots.md          screenshots of the main screens (images in docs/screenshots/)
 .claude/skills/         project conventions for Claude Code
 ```
 
