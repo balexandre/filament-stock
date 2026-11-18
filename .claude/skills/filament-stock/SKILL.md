@@ -11,16 +11,19 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 
 ## Hard constraints
 
-- **Static site only.** One `index.html` (plus small `js/*.js`, `css/*.css` if it grows)
-  served by GitHub Pages at `https://balexandre.github.io/filament-stock/`. No build step,
-  no bundler, no Node server.
-- **Tailwind** via the Play CDN, **Alpine.js** via CDN, **supabase-js v2** via CDN.
-  Pin exact versions in every `<script src>`.
-- **Hash routing** (`#/spool/<code>`, `#/learn/pla`) — GitHub Pages has no SPA fallback.
-- **Supabase** for auth + data. Only the *anon* key and project URL live in the page;
-  every table is protected by Row Level Security. Never put the service-role key in the repo.
-- **SpoolmanDB** (`https://donkie.github.io/SpoolmanDB/filaments.json` + `materials.json`)
-  is the only catalogue of brands/filaments/materials. Don't invent a catalogue table.
+- **Static site only.** `index.html` + `css/app.css` + `js/*.js`, served by GitHub Pages at
+  `https://balexandre.github.io/filament-stock/` from `master` / root. No build step, no bundler,
+  no Node server.
+- **Tailwind** Play CDN (`darkMode: 'class'`), **Alpine.js**, **supabase-js v2** and
+  **qrcode-generator**, all from CDN with exact pinned versions in every `<script src>`.
+- **Hash routing** — GitHub Pages has no SPA fallback. Routes: `#/`, `#/pick`, `#/s/<code>`,
+  `#/edit/<code>`, `#/add`, `#/labels[/<codes>]`, `#/shop`, `#/learn[/<KEY>]`, `#/cards`,
+  `#/settings`. `learn` and `cards` are public (no login); everything else needs a session.
+- **Supabase** for auth + data. Only the project URL and the **publishable/anon** key live in
+  `js/config.js` (public by design); every table has Row Level Security. Never commit a
+  `service_role` / `sb_secret_…` key.
+- **SpoolmanDB** (`https://donkie.github.io/SpoolmanDB/filaments.json`) is the only catalogue of
+  brands/filaments. Don't invent a catalogue table.
 
 ## Domain words
 
@@ -31,7 +34,9 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 | **Remaining** | Grams of filament left on a spool. The number the whole app revolves around. |
 | **Usage** | A log entry: "this print used 38 g". Remaining = initial − sum(usage). |
 | **Minimum** | A low-stock threshold, set **per filament** (summed over all its spools) with an optional per-spool override. Below it → warning + "to order" list. |
-| **Location** | Where a spool is: `AMS 2 Pro slot 1–4`, `AMS HT`, `Ender 3`, `Shelf`, `Dry box`. |
+| **Location** | Where a spool is: `AMS 1`–`AMS 4` (AMS 2 Pro), `AMS HT`, `Ender 3`, `Shelf`, `Dry box` (its own box), plus any shared boxes added in Settings. One active spool per printer slot. |
+| **Dry box** | The spool's **own** sealed box with desiccant (one per spool, e.g. a 4 L cereal box). PLA usually stays on the Shelf. |
+| **Desiccant change** | A log entry: beads swapped (`replaced`) or dried (`recharged`), optional hygrometer %. Per dry box, AMS unit or shared box. |
 | **Card** | A printable, laminate-friendly A6 sheet with print settings for a material on the X2D. |
 
 ## Printers
@@ -62,12 +67,21 @@ All rows are owned by a `household` so adult and kid accounts see the same stock
 - `desiccant_log (spot_id XOR spool_id, action 'replaced'|'recharged', humidity_pct, note, created_by)` — kids can log and
   undo their own for 15 min; adults configure. `dry_spot_status` = spot + latest change; `spool_stock` carries the spool's
   own-box `desiccant_changed_at` / `desiccant_interval_days`. Due/overdue is computed client-side.
-- View `spool_stock` → spool + `remaining_g` + `is_low`. View `shopping_list` → filaments below minimum.
+- View `spool_stock` → spool + `used_g`, `remaining_g`, `effective_min_g` (spool → filament → household default),
+  `filament_min_g`, `last_used_at` and the own-box desiccant fields. View `shopping_list` → one row per filament
+  whose total remaining ≤ minimum (archived spools with `reorder` stay in the group at 0 g).
+- All views use `security_invoker = true` so the caller's RLS applies.
 
 RLS rule of thumb: a row is visible/writable when its `household_id` equals `my_household()`.
 Kids can insert spools and `usage_log` rows, undo their own log entries for 15 min, and move
 spools via the `move_spool` RPC; only adults (`is_adult()`) update/delete spools or minimums.
-Owner-only RPCs: `set_member_kid`, `rotate_invite_code`.
+Owner-only RPCs: `set_member_kid`, `rotate_invite_code`. Owners may update only
+`households (name, default_min_g, box_desiccant_days)`; users only their own `profiles.display_name`
+(column-level grants).
+
+Schema changes must stay **idempotent and upgrade-safe**: the owner re-runs the whole file on a
+live database. Add columns with `alter table … add column if not exists`, recreate views with
+`drop view if exists` first, and migrate old data in place (see the shared "Dry box" cleanup).
 
 Auth: email + password with email confirmation (Supabase default). Registration will
 later be disabled in the Supabase dashboard (*Auth → Providers → Email → disable signups*);
@@ -75,10 +89,13 @@ the UI must cope with the signup endpoint returning an error.
 
 ## SpoolmanDB usage
 
-- `filaments.json` (~6 MB, ~9.7k rows): load **only** in the "Add spool" flow, cache it in
-  IndexedDB with a timestamp, refresh weekly. Search by manufacturer + name + material,
+- `filaments.json` (~6 MB, ~9.7k rows, ~7.9k at 1.75 mm): load **only** in the "Add spool" flow,
+  cache it in IndexedDB with a timestamp, refresh weekly (`js/catalog.js`). Search by manufacturer + name + material,
   show the colour swatch from `color_hex` / `color_hexes`.
 - Only 1.75 mm filaments are offered. `color_hex` may be `RRGGBB` or `RRGGBBAA`.
+- Settings shows the date of the last upstream change (GitHub API, `commits?path=filaments`,
+  cached 30 min in `sessionStorage`; 60 unauthenticated requests/hour) against the local cache
+  date, plus links to the repo and its recent changes.
 - Use `weight` as default `initial_g` and `spool_weight` for the "weigh it" feature:
   `remaining = scale_reading − spool_weight`.
 
@@ -101,14 +118,21 @@ the UI must cope with the signup endpoint returning an error.
 3. **Colour first.** Spools are recognised by a big colour swatch + friendly name, then material.
 4. **Traffic-light stock bars:** green > 2× minimum, amber ≤ 2× minimum, red ≤ minimum.
    Always pair colour with text/icon ("Low", "Order now") — never colour alone.
-5. **Simple mode** (auto-on for `is_kid` profiles, toggle for adults): bigger text, plain words
-   ("plastic left" instead of "remaining filament"), hides delete/edit/minimums/prices.
+5. **Simple mode** (always on for `is_kid` profiles, toggle for adults): root font 18 px, plain
+   words ("plastic left", "beads are tired"), hides delete/edit/minimums/history.
 6. **Accessibility:** WCAG AA contrast, 44 px minimum tap targets, visible focus rings,
-   every icon button has `aria-label`, works with keyboard, respects `prefers-reduced-motion`
-   and has a System → Light → Dark theme button (rightmost in the header, stored per device).
-7. **Sanity checks, friendly tone:** logging more than what's left → "That's more than the
+   every icon button has `aria-label`, works with keyboard, respects `prefers-reduced-motion`.
+7. **Theme:** one button, rightmost in the header (and on the login screen), cycles
+   System → Light → Dark, stored per device in `localStorage` (`fs.theme`). `applyTheme()` in
+   `js/app.js` runs in `<head>` and sets `html.dark` + `color-scheme`, so there's no flash.
+   Custom CSS targets `html.dark …`, never `@media (prefers-color-scheme)`.
+8. **Sanity checks, friendly tone:** logging more than what's left → "That's more than the
    spool has left (212 g). Use 212 g and mark it empty?"
-8. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
+9. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
+10. **Look:** the AMS cards copy the X2D wood-cabinet model (dark `#34363b` body, smoked lid,
+    slot LEDs) at real proportions (AMS 2 Pro 372 mm, AMS HT 200 mm). The app icon is
+    `favicon.svg` (indigo `#4f46e5` tile, white spool + strand), also used as the in-app logo;
+    PNGs in `icons/` and `manifest.webmanifest` for home screens.
 
 ## Learn section
 
@@ -118,12 +142,18 @@ the UI must cope with the signup endpoint returning an error.
   volumetric flow, walls, top/bottom layers, infill pattern + %, drying temp/time, which AMS
   (AMS 2 Pro vs AMS HT vs external spool), hardened nozzle required?
 - Values are **starting points** based on Bambu Studio generic profiles; label them as such.
-- `@media print` stylesheet renders cards at A6 (two per A5 / four per A4), high contrast,
-  no backgrounds that waste ink, QR on the card linking back to the Learn page.
+- `@media print` stylesheet renders cards at A6 (four per A4, `#/cards` prints them all),
+  high contrast, QR on the card linking back to the Learn page. `learnFor(material)` maps any
+  SpoolmanDB material string (PLA+, PA6-CF, PCTG…) to a Learn entry.
 
 ## Code style
 
-- Alpine components as plain functions in `<script>` (`Alpine.data('spoolList', () => ({...}))`).
-- Keep Supabase calls in one `api` object; components never build queries inline.
+- One Alpine component, `Alpine.data('app', …)` in `js/app.js`; markup in `index.html` uses
+  `x-show` sections per route.
+- Keep Supabase calls in the `api` object (`js/api.js`); the component never builds queries inline.
+- **Alpine gotcha:** an expression that evaluates to a *function* gets called. Store callbacks
+  (like the toast's undo) but test them with `x-show="!!undoFn"`, never `x-show="undoFn"`.
+- Tailwind's Play CDN only sees literal class names; arbitrary values need `minmax(0,…)` grid
+  tracks so cards can shrink on phones.
 - No frameworks beyond Tailwind/Alpine/supabase-js/qrcode. No TypeScript, no build.
 - SQL lives in `supabase/schema.sql`, idempotent (`create … if not exists`, `drop policy if exists`).
