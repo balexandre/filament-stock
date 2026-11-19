@@ -109,7 +109,7 @@ document.addEventListener('alpine:init', () => {
     get amsUnits() {
       const slot = (loc, n) => ({ loc, n, spool: this.spools.find(s => s.location === loc) });
       return [
-        { name: 'AMS 2 Pro', ht: false, dry: this.amsDry('AMS 2 Pro'), sub: this.simple ? '4 colours' : '4 slots · dries up to 65 °C',
+        { name: 'AMS', ht: false, dry: this.amsDry('AMS 2 Pro'), sub: this.simple ? '4 colours' : '4 slots · dries up to 65 °C',
           slots: ['AMS 1', 'AMS 2', 'AMS 3', 'AMS 4'].map((l, i) => slot(l, i + 1)) },
         { name: 'AMS HT', ht: true, dry: this.amsDry('AMS HT'), sub: this.simple ? '1 colour · hot plastics' : '1 slot · dries up to 85 °C',
           slots: [slot('AMS HT', 'HT')] },
@@ -805,7 +805,7 @@ document.addEventListener('alpine:init', () => {
       const m = (e && (e.message || e.error_description)) || String(e);
       if (/invalid login credentials/i.test(m)) return 'Wrong email or password.';
       if (/email not confirmed/i.test(m)) return 'Please confirm your email first — check your inbox.';
-      if (/signups? not allowed|signup.*disabled/i.test(m)) return 'New registrations are closed. Ask the owner for an account.';
+      if (/signups? not allowed|signup.*disabled/i.test(m)) return 'New accounts are switched off right now, even with an invite code. Ask the owner to switch them on.';
       if (/database error saving new user/i.test(m)) return 'That invite code didn’t work. Check it and try again.';
       if (/password should be at least/i.test(m)) return 'Password needs at least 6 characters.';
       if (/rate limit/i.test(m)) return 'Too many tries — wait a minute and try again.';

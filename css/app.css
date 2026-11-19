@@ -27,10 +27,14 @@ html.simple { font-size: 18px; } /* everything is rem-based, so this scales the 
            border: 1px solid rgba(255,255,255,.08); }
 .ams-lid::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
                   background: linear-gradient(115deg, rgba(255,255,255,.14), transparent 38%); }
-.ams-ht .ams-lid { padding-top: 28px; padding-bottom: 28px; } /* the HT is taller (265 vs 227 mm) */
 .ams-base { padding: 7px 4px 2px; }
 .ams-slot { display: block; border-radius: 9999px; width: 100%; max-width: 4.75rem; margin: 0 auto; }
-.ams-ht .ams-slot { width: 48%; min-width: 2.75rem; }
+/* The HT card is a one-slot slice of the AMS: same spool size, so both cards are the same height.
+   An AMS slot is a quarter of the AMS card's inside width. That card is 372/572 of the row
+   (.ams-row, minus its 12px gap); 68px = card padding 24 + body 12 + lid padding 12 + lid border 2
+   + three 6px slot gaps. */
+.ams-row { container-type: inline-size; }
+.ams-ht .ams-slot { width: 48%; width: min(4.75rem, ((100cqw - 12px) * 372 / 572 - 68px) / 4); max-width: none; }
 /* grey flange so black spools still stand out against the smoked lid */
 .spool { aspect-ratio: 1; border-radius: 9999px; display: grid; place-items: center;
          box-shadow: 0 0 0 2px #15171a, 0 0 0 4px #5b6068, inset 0 0 0 2px rgba(0,0,0,.25); transition: transform .15s; }
@@ -75,6 +79,8 @@ html.dark .link { color: #a5b4fc; }
   .label-sheet { display: grid !important; grid-template-columns: repeat(3, 62mm) !important; gap: 3mm !important; }
   .label-item { width: 62mm; height: 32mm; padding: 2mm !important; border: 1px dashed #999 !important;
                 border-radius: 2mm !important; box-shadow: none !important; opacity: 1 !important; break-inside: avoid; }
+  /* Browsers drop backgrounds when printing; keep the colour dot (a background) on paper. */
+  .label-item, .label-item * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .label-item .label-qr { width: 26mm !important; height: 26mm !important; }
 
   /* Material cards: A6, four per A4 */

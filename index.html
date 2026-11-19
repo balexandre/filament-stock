@@ -72,9 +72,11 @@
           <input x-model="auth.email" type="email" autocomplete="email" :required="auth.mode!=='newpass'" class="field mt-1"></label>
         <label x-show="auth.mode!=='forgot'" class="block"><span class="text-sm font-semibold" x-text="auth.mode==='newpass' ? 'New password' : 'Password'"></span>
           <input x-model="auth.password" type="password" minlength="6" :autocomplete="auth.mode==='login' ? 'current-password' : 'new-password'" :required="auth.mode!=='forgot'" class="field mt-1"></label>
-        <label x-show="auth.mode==='signup'" class="block"><span class="text-sm font-semibold">Family invite code <span class="font-normal text-slate-500">(optional)</span></span>
+        <label x-show="auth.mode==='signup'" class="block"><span class="text-sm font-semibold">Invite code <span class="font-normal text-slate-500">(optional)</span></span>
           <input x-model="auth.invite" autocapitalize="characters" placeholder="e.g. 7F3A9C21" class="field mt-1 font-mono uppercase">
-          <span class="text-xs text-slate-500">Joining someone’s workshop? Ask them for the code in Settings.</span></label>
+          <span x-show="!(auth.invite || '').trim()" class="block mt-1 text-xs text-slate-500"><b>No code:</b> you start a new, empty workshop of your own. Only you will see its spools.</span>
+          <span x-show="(auth.invite || '').trim()" class="block mt-1 text-xs text-slate-500"><b>With a code:</b> you join that person’s workshop and share their spools, printers and usage. You can’t switch workshops later.</span>
+          <span class="block mt-1 text-xs text-slate-500">To share someone’s stock, ask them for the code in <b>Settings → Who shares this stock</b>.</span></label>
 
         <p x-show="auth.err" x-text="auth.err" role="alert" class="p-3 rounded-xl bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 text-sm"></p>
         <p x-show="auth.msg && auth.mode==='forgot'" x-text="auth.msg" class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-sm"></p>
@@ -169,7 +171,7 @@
           <span x-show="!simple" class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 shrink-0">Default printer</span>
         </div>
         <!-- widths follow the real units: AMS 2 Pro 372 mm, AMS HT 200 mm -->
-        <div class="grid grid-cols-[minmax(0,372fr)_minmax(0,200fr)] gap-3 items-end">
+        <div class="ams-row grid grid-cols-[minmax(0,372fr)_minmax(0,200fr)] gap-3 items-end">
           <template x-for="unit in amsUnits" :key="unit.name">
             <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-sm h-full flex flex-col" role="group" :aria-label="unit.name">
               <div class="mb-2 flex items-start gap-2">
@@ -960,8 +962,10 @@
           </form>
 
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm space-y-3">
-            <h2 class="font-bold">Family</h2>
-            <p class="text-sm text-slate-600 dark:text-slate-300">To add someone, they create an account with this invite code. New members start as <b>kids</b> (can log usage and add rolls, can’t edit or delete).</p>
+            <h2 class="font-bold">Who shares this stock</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-300">Everyone listed here sees the same spools, printers and usage.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-300">To add someone, give them this code. They type it in <b>Invite code</b> when they create their account. If they sign up without it, they get a separate, empty workshop instead, and can’t join this one later with that account.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-300">New members start as <b>kids</b>: they can log usage, add rolls and move spools, but can’t edit or delete anything. Tap <b>Make grown-up</b> to give them full access.</p>
             <div class="flex items-center gap-2">
               <code class="flex-1 text-center text-2xl font-black tracking-widest bg-slate-100 dark:bg-slate-800 rounded-xl py-2" x-text="me.household.invite_code"></code>
               <button @click="copy(me.household.invite_code, 'Code copied')" class="btn-outline" aria-label="Copy invite code">📋</button>

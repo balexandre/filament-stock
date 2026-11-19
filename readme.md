@@ -111,16 +111,19 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 
 ### 2. Accounts
 
-- The **first person to sign up without an invite code** gets their own workshop (household)
-  and becomes its owner.
-- Others join with the code from **Settings → Family**, which they enter when creating their
-  account.
+All stock belongs to a **workshop** (household). Everyone in a workshop sees the same spools,
+printers and usage. Each account belongs to exactly one workshop, chosen when it is created.
+
+- **Signing up without an invite code** creates a new, empty workshop. That person is its owner.
+- **Signing up with an invite code** joins the workshop that the code belongs to. The owner
+  finds the code in **Settings → Who shares this stock**. An account made without the code
+  can't join a workshop later; the person needs a new account.
 - **New members start as kids.** Kids can log usage, add rolls, move spools and log desiccant
   changes, but can't edit or delete spools or change settings. The owner can switch them to
   grown-up.
 - When everyone is in, go to **Authentication → Providers → Email** and turn off
-  **"Allow new users to sign up"**. The app then shows a friendly "registrations are closed"
-  message.
+  **"Allow new users to sign up"**. This blocks invite-code signups too, so switch it back on
+  while someone joins. The app tells people that new accounts are switched off.
 
 ### 3. GitHub Pages
 
@@ -163,6 +166,7 @@ favicon.svg, icons/     app icon (SVG + PNGs for home screens)
 manifest.webmanifest    install-to-home-screen metadata
 mockup/                 the original clickable mockup (fake data)
 screenshots.md          screenshots of the main screens (images in docs/screenshots/)
+ideas.md                ideas for later, to discuss before building
 .claude/skills/         project conventions for Claude Code
 ```
 

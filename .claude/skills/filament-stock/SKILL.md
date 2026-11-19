@@ -53,7 +53,7 @@ spool, and learn how to print each material. Used by an adult **and an 11-year-o
 
 All rows are owned by a `household` so adult and kid accounts see the same stock.
 
-- `households (… owner_id, invite_code, default_min_g)` — first signup creates one; others join with `invite_code` in signup metadata and start as kids.
+- `households (… owner_id, invite_code, default_min_g)` — a signup without a code creates a new, empty one (UI calls it a "workshop"); a signup with `invite_code` in its metadata joins that one as a kid. An account's household is fixed at signup. Settings card: "Who shares this stock". Turning off Supabase signups also blocks invite-code joins.
 - `profiles (id = auth.users.id, household_id, display_name, is_kid bool)` — users may only update `display_name`.
 - `printers (id, household_id, name, model, nozzle_mm, is_default)`
 - `spools (id, household_id, code unique, spoolman_id text, brand, name, material, color_hex,
@@ -131,7 +131,9 @@ the UI must cope with the signup endpoint returning an error.
 
 - Label URL: `https://balexandre.github.io/filament-stock/#/s/<code>` — keep it short.
 - QR: generate client-side (e.g. `qrcode` lib from CDN). Printable sheet of small labels
-  (code, colour swatch, material, brand) sized for spool sides.
+  (code, colour swatch, material, brand) sized for spool sides. Anything printed whose colour
+  is a CSS background (swatches, gradients) needs `print-color-adjust: exact` in the print CSS,
+  or browsers print it white.
 - NFC (NTAG215, 504 bytes): write one NDEF **URL** record with the same link.
   Use Web NFC (`NDEFReader`) on Android Chrome; elsewhere show the link + "copy" and tell the
   user to write it with the *NFC Tools* app. iPhones open NDEF URLs natively when tapped.
@@ -160,7 +162,9 @@ the UI must cope with the signup endpoint returning an error.
    spool has left (212 g). Use 212 g and mark it empty?"
 10. **Mobile first** — it's mostly used by the printer, on a phone, after scanning a label.
 11. **Look:** the AMS cards copy the X2D wood-cabinet model (dark `#34363b` body, smoked lid,
-    slot LEDs) at real proportions (AMS 2 Pro 372 mm, AMS HT 200 mm). An empty slot's "+" opens the
+    slot LEDs). Card widths follow the real units (AMS 2 Pro 372 mm, AMS HT 200 mm), but the HT
+    card is a one-slot slice of the AMS: same spool size and same height (`.ams-row` container
+    query in `css/app.css`). The 4-slot card is titled just "AMS" (AMS 1 and AMS 2 Pro both hold 4); its desiccant row is still the `AMS 2 Pro` dry spot. An empty slot's "+" opens the
     **slot picker** (spools not in a printer: Shelf, Dry box, shared boxes; tap = `move_spool`),
     with "Add a new spool for this slot" (preselects the slot via `pendingLoc`). Never send an
     empty slot straight to Add spool. AMS desiccant lives **on the AMS card**: a 💧 gauge pill in the
@@ -229,3 +233,8 @@ the UI must cope with the signup endpoint returning an error.
   tracks so cards can shrink on phones.
 - No frameworks beyond Tailwind/Alpine/supabase-js/qrcode. No TypeScript, no build.
 - SQL lives in `supabase/schema.sql`, idempotent (`create … if not exists`, `drop policy if exists`).
+
+## Ideas for later
+
+`ideas.md` (repo root) lists features we want to discuss before building, starting with
+"Set up your own printer and units". Don't build them unasked; add new ideas at the bottom of that file.
