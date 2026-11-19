@@ -165,7 +165,8 @@ the UI must cope with the signup endpoint returning an error.
     slot LEDs). Card widths follow the real units (AMS 2 Pro 372 mm, AMS HT 200 mm), but the HT
     card is a one-slot slice of the AMS: same spool size and same height (`.ams-row` container
     query in `css/app.css`). The 4-slot card is titled just "AMS" (AMS 1 and AMS 2 Pro both hold 4); its desiccant row is still the `AMS 2 Pro` dry spot. An empty slot's "+" opens the
-    **slot picker** (spools not in a printer: Shelf, Dry box, shared boxes; tap = `move_spool`),
+    **slot picker** (spools not in a printer: Shelf, Dry box, shared boxes, Unopened; tap = `move_spool`;
+    material chips "All · PETG · 3 · …" like the stock list, shown when there's more than one material),
     with "Add a new spool for this slot" (preselects the slot via `pendingLoc`). Never send an
     empty slot straight to Add spool. AMS desiccant lives **on the AMS card**: a 💧 gauge pill in the
     top-right (`dryGauge()`: conic ring = freshness, days left, red "Change" when due; on phones

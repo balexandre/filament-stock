@@ -31,7 +31,8 @@ It's made for a Bambu Lab X2D with an AMS 2 Pro and an AMS HT, and for a househo
 - **🖨️ What's in the printer:** front-view cards for the **AMS 2 Pro** (4 slots) and the
   **AMS HT** (1 slot), drawn to the real units' proportions. A spool's ring gets thinner as
   it runs out.
-  Tap an empty slot's **+** to load a spool you already have (from the shelf or a dry box), or to
+  Tap an empty slot's **+** to load a spool you already have (from the shelf, a dry box or still
+  unopened, with material chips to narrow the list), or to
   add a new one straight into that slot.
 - **📷 Scan to log:** each spool gets a 4-character code on a QR label or NFC sticker. Scanning it
   opens one question, "How many grams did your print use?", or you can weigh the spool instead.

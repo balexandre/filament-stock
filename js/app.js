@@ -59,7 +59,7 @@ document.addEventListener('alpine:init', () => {
     catBrands: [],
     labelSel: [],
     nfc: { open: false, code: '', state: 'idle', msg: '' },
-    slotPick: { open: false, loc: '', saving: false }, // "+" on an empty AMS / Ender slot
+    slotPick: { open: false, loc: '', saving: false, filter: 'All' }, // "+" on an empty AMS / Ender slot
     pendingLoc: null, // slot to preselect when "Add a new spool" is opened from the slot picker
     edit: null,
     card: null,
@@ -524,7 +524,10 @@ document.addEventListener('alpine:init', () => {
     printLabels(codes) { this.go('labels/' + codes.join(',')); },
     get nfcSupported() { return 'NDEFReader' in window; },
     // ---------- load a spool you already have into an empty slot ----------
-    openSlot(loc) { this.slotPick = { open: true, loc, saving: false }; },
+    openSlot(loc) { this.slotPick = { open: true, loc, saving: false, filter: 'All' }; },
+    // material chips in the slot picker (only materials that are free to load)
+    get slotMaterials() { return ['All', ...new Set(this.slotCandidates.map(s => s.material))]; },
+    get slotShown() { const f = this.slotPick.filter; return this.slotCandidates.filter(s => f === 'All' || s.material === f); },
     // spools not in a printer right now: shelf first, then dry boxes; same material together
     get slotCandidates() {
       const away = s => SLOTS.includes(s.location) || s.location === 'Ender 3';

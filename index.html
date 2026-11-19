@@ -1126,8 +1126,16 @@
       <button type="button" @click="slotPick.open=false" class="w-10 h-10 rounded-full text-xl focus-ring hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">✕</button>
     </div>
     <p class="text-sm text-slate-500" x-show="slotCandidates.length">Spools on the shelf, in a dry box or still unopened. Tap one to load it.</p>
+    <div x-show="slotMaterials.length > 2" class="flex gap-2 overflow-x-auto pb-1 shrink-0" role="tablist" aria-label="Filter by material">
+      <template x-for="m in slotMaterials" :key="m">
+        <button type="button" role="tab" :aria-selected="slotPick.filter===m" @click="slotPick.filter=m"
+                class="shrink-0 px-3 h-9 rounded-full text-sm font-semibold border-2 focus-ring"
+                :class="slotPick.filter===m ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'"
+                x-text="m === 'All' ? 'All' : m + ' · ' + slotCandidates.filter(s => s.material === m).length"></button>
+      </template>
+    </div>
     <ul class="space-y-2 overflow-y-auto -mx-1 px-1">
-      <template x-for="s in slotCandidates" :key="s.id">
+      <template x-for="s in slotShown" :key="s.id">
         <li><button type="button" @click="loadIntoSlot(s)" :disabled="slotPick.saving" class="w-full flex items-center gap-3 p-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-left hover:border-indigo-400 disabled:opacity-60 focus-ring">
           <span class="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 shrink-0" :style="swatch(s)"></span>
           <span class="flex-1 min-w-0">
